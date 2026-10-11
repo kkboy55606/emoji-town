@@ -59,6 +59,11 @@ const getJSON = url => new Promise((res, rej) => http.get(url, r => { let d = ''
       const out={rows,spent:c0-G.coins,blade:G.board.filter(it=>it&&it.s==='blade').length};
       document.querySelector('#modal [data-a="close"]').click(); await sl(200); return out})()`);
     check('③ 鍛造：3 種配方、扣 💰40、盤上多一把 🔪', forge.rows === 3 && forge.spent === 40 && forge.blade === 1, JSON.stringify(forge));
+    const dot1 = await ev(`(async()=>{const sl=ms=>new Promise(r=>setTimeout(r,ms));
+      document.querySelector('.tab[data-t="garden"]').click(); await sl(400);
+      const d=document.querySelector('.tab[data-t="quest"] .dot'); const shown=!!(d&&!d.hidden);
+      document.querySelector('.tab[data-t="quest"]').click(); await sl(300); return shown})()`);
+    check('冒險分頁紅點：盤上有可穿的裝備、英雄有空欄時亮起', dot1);
     const eq = await ev(`(async()=>{const {G}=window.__town; const sl=ms=>new Promise(r=>setTimeout(r,ms));
       const h=G.adv.heroes[0], atk0=window.__town.ET.heroStats(G,h).atk;
       document.querySelector('#heroes .hero:not(.add)').click(); await sl(250);
@@ -67,6 +72,11 @@ const getJSON = url => new Promise((res, rej) => http.get(url, r => { let d = ''
       const out={cand,weapon:h.gear.weapon&&h.gear.weapon.s+h.gear.weapon.t,atkUp:window.__town.ET.heroStats(G,h).atk-atk0,gearIcon:document.querySelector('#modal .slotrow .gn')&&document.querySelector('#modal .slotrow .gn').textContent.includes('小刀')};
       document.querySelector('#modal [data-a="close"]').click(); await sl(200); return out})()`);
     check('英雄視窗：列出盤上的武器、點一下穿上、攻擊 +5', eq.cand === 1 && eq.weapon === 'blade1' && Math.abs(eq.atkUp - 5) < 0.01 && eq.gearIcon, JSON.stringify(eq));
+    const dot2 = await ev(`(async()=>{const sl=ms=>new Promise(r=>setTimeout(r,ms));
+      document.querySelector('.tab[data-t="garden"]').click(); await sl(400);
+      const d=document.querySelector('.tab[data-t="quest"] .dot'); const shown=!!(d&&!d.hidden);
+      document.querySelector('.tab[data-t="quest"]').click(); await sl(300); return shown})()`);
+    check('穿上以後紅點消失（盤上沒有別的可穿裝備了）', dot2 === false, String(dot2));
     // ---- ④ 補給 ----
     const food = await ev(`(async()=>{const {G}=window.__town; const sl=ms=>new Promise(r=>setTimeout(r,ms));
       document.getElementById('bFood').click(); await sl(250); const rows=document.querySelectorAll('#modal [data-a^="pk:"]').length;

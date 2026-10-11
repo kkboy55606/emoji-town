@@ -12,7 +12,7 @@
 - 客人不會想要裝備、自動出貨不會賣掉裝備。
 
 ### 測試
-- `npm test`：核心 125 條（含 S3 的 28 條）+ PWA 11 條；`npm run ui`：真 Chrome 的 UI 冒煙測試 14 項。
+- `npm test`：核心 125 條（含 S3 的 28 條）+ PWA 11 條；`npm run ui`：真 Chrome 的 UI 冒煙測試 16 項。
 
 ## 2026-10-11 — 上線 GitHub Pages
 - https://kkboy55606.github.io/emoji-town/ （公開網址；存檔仍只在各自的手機）
