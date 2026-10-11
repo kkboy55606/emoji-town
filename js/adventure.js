@@ -5,11 +5,13 @@
   const ET = root.ET, AD = ET.ADV, MAXT = ET.MAXT, N = ET.COLS * ET.ROWS;
   const SLOTS = ['weapon', 'armor', 'trinket'];
   const ev = (G, o) => { if (G.ev.length < 300) G.ev.push(o); };
+  // ET.quiet = true 時（離線補算）不需要動畫事件：熱點處先判斷，連事件物件都不要配置
+  const GMUL = [0]; for (let t = 1; t <= MAXT; t++) GMUL.push(Math.pow(ET.GEAR_MUL, t - 1));
   const lvMul = l => 1 + 0.06 * (l - 1);      // 每級只 +6%：升級是輔助，推進主要靠裝備
   const roll = G => 0.9 + 0.2 * ET.rand(G);
   ET.SLOTS = SLOTS;
   ET.heroXpNeed = l => Math.round(20 * Math.pow(l, 1.5));
-  ET.gearMul = t => Math.pow(ET.GEAR_MUL, t - 1);
+  ET.gearMul = t => GMUL[t];
   ET.isGear = s => !!(ET.SERIES[s] && ET.SERIES[s].gear);
 
   ET.newAdv = () => ({
@@ -20,12 +22,14 @@
   });
 
   // ---------- 屬性 ----------
+  const NO_FOOD = Object.freeze({ atk: 0, def: 0, hp: 0, regen: 0, xp: 0 });
+  const FOOD_FULL = {};      // 每種料理補齊欄位後的唯讀表，查表就好，不用每次合併出新物件
+  for (const s in ET.FOOD) { FOOD_FULL[s] = {}; for (const t in ET.FOOD[s]) FOOD_FULL[s][t] = Object.freeze(Object.assign({ atk: 0, def: 0, hp: 0, regen: 0, xp: 0 }, ET.FOOD[s][t])); }
   function foodMod(A) {
-    const f = A.food.act, m = { atk: 0, def: 0, hp: 0, regen: 0, xp: 0 };
-    if (f && ET.FOOD[f.s] && ET.FOOD[f.s][f.t]) Object.assign(m, ET.FOOD[f.s][f.t]);
-    return m;
+    const f = A.food.act;
+    return (f && FOOD_FULL[f.s] && FOOD_FULL[f.s][f.t]) || NO_FOOD;
   }
-  ET.foodMod = G => (G.adv ? foodMod(G.adv) : { atk: 0, def: 0, hp: 0, regen: 0, xp: 0 });
+  ET.foodMod = G => (G.adv ? foodMod(G.adv) : NO_FOOD);
   // 英雄目前屬性：職業底 × 等級 + 裝備（每高 1 階 ×1.7）× 料理加成
   ET.heroStats = function (G, h) {
     const R = ET.ROLES[h.role], k = lvMul(h.lvl), m = foodMod(G.adv);
@@ -230,7 +234,7 @@
   // ---------- 戰鬥（1 秒一回合） ----------
   function strike(G, e, dmg, fromHero) {
     e.hp -= dmg;
-    ev(G, { t: 'hit', side: 'enemy', i: G.adv.battle.enemies.indexOf(e), dmg, from: fromHero });
+    if (!ET.quiet) ev(G, { t: 'hit', side: 'enemy', i: G.adv.battle.enemies.indexOf(e), dmg, from: fromHero });
   }
   function battleStep(G) {
     const A = G.adv, heroes = A.heroes;
@@ -244,18 +248,21 @@
     if (!A.battle) A.battle = { enemies: makeEnemies(A.area, A.stage), t: 0 };
     const B = A.battle, fm = foodMod(A);
     B.t++;
-    if (fm.regen) for (const h of heroes) if (h.hp > 0) h.hp = Math.min(maxHp(G, h), h.hp + fm.regen);
+    const S = heroes.map(h => ET.heroStats(G, h));            // 這一回合每位英雄的屬性（這回合內不會變）
+    const idxOf = h => heroes.indexOf(h);
+    if (fm.regen) heroes.forEach((h, i) => { if (h.hp > 0) h.hp = Math.min(S[i].hp, h.hp + fm.regen); });
     const alive = () => heroes.filter(h => h.hp > 0), mobs = () => B.enemies.filter(e => e.hp > 0);
     // 英雄行動
-    for (const h of heroes) {
+    for (let hi = 0; hi < heroes.length; hi++) {
+      const h = heroes[hi];
       if (h.hp <= 0) continue;
       const ms = mobs(); if (!ms.length) break;
-      const st = ET.heroStats(G, h);
+      const st = S[hi];
       if (h.role === 'mage') { for (const e of ms) strike(G, e, Math.max(1, Math.round(st.atk * 0.6 * roll(G) - e.def)), h.id); }
       else if (h.role === 'elf' && B.t % 2 === 0) {
-        let t = null, tr = 2;
-        for (const x of alive()) { const r = x.hp / maxHp(G, x); if (r < tr) { tr = r; t = x; } }
-        if (t) { const heal = Math.max(3, Math.round(st.atk * 2.2)); t.hp = Math.min(maxHp(G, t), t.hp + heal); ev(G, { t: 'heal', hid: t.id, v: heal }); }
+        let t = -1, tr = 2;
+        for (let k = 0; k < heroes.length; k++) { if (heroes[k].hp <= 0) continue; const r = heroes[k].hp / S[k].hp; if (r < tr) { tr = r; t = k; } }
+        if (t >= 0) { const heal = Math.max(3, Math.round(st.atk * 2.2)); heroes[t].hp = Math.min(S[t].hp, heroes[t].hp + heal); if (!ET.quiet) ev(G, { t: 'heal', hid: heroes[t].id, v: heal }); }
       } else {
         const tgt = h.role === 'archer' ? ms[ms.length - 1] : ms[0];
         strike(G, tgt, Math.max(1, Math.round(st.atk * roll(G) - tgt.def)), h.id);
@@ -267,9 +274,9 @@
       const al = alive(); if (!al.length) break;
       const kn = al.filter(h => h.role === 'knight');
       const t = (kn.length && ET.rand(G) < 0.6) ? kn[Math.floor(ET.rand(G) * kn.length)] : al[Math.floor(ET.rand(G) * al.length)];
-      const dmg = Math.max(1, Math.round(e.atk * roll(G) - ET.heroStats(G, t).def));
+      const dmg = Math.max(1, Math.round(e.atk * roll(G) - S[idxOf(t)].def));
       t.hp -= dmg; if (t.hp < 0) t.hp = 0;
-      ev(G, { t: 'hit', side: 'hero', hid: t.id, dmg });
+      if (!ET.quiet) ev(G, { t: 'hit', side: 'hero', hid: t.id, dmg });
     }
     if (!alive().length) lose(G);
   }

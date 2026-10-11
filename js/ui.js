@@ -15,7 +15,7 @@
   // ---------- 儲存 ----------
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
-  function save() { lsSet(KEY, ET.save(G, Date.now())); }
+  function save() { if (G) lsSet(KEY, ET.save(G, Date.now())); }
   function loadPref() { try { const o = JSON.parse(lsGet(PREF)); if (o && typeof o === 'object') pref = Object.assign(pref, o); } catch (e) { } }
   function savePref() { lsSet(PREF, JSON.stringify(pref)); }
 
@@ -796,18 +796,25 @@
   // ---------- 啟動 ----------
   loadPref();
   let bootOffline = null;
+  function start(loaded, gap) {
+    if (loaded) {
+      G = loaded;
+      if (gap >= 1) { bootOffline = ET.offline(G, gap); if (bootOffline) bootOffline.rawSec = gap; }
+      G.ev.length = 0;
+    } else G = ET.newState(Date.now());
+    last = Date.now();
+    resetUI();
+    save();
+    setInterval(loop, 100);
+    $('#boot').hidden = true;
+    if (bootOffline && bootOffline.sec >= 30) openOffline(bootOffline);
+  }
   const saved = lsGet(KEY);
-  const loaded = saved ? ET.load(saved) : null;
-  if (loaded) {
-    G = loaded;
-    const gap = ET.offlineSeconds(G, Date.now());
-    if (gap >= 1) { bootOffline = ET.offline(G, gap); if (bootOffline) bootOffline.rawSec = gap; }
-    G.ev.length = 0;
-  } else G = ET.newState(Date.now());
-  last = Date.now();
-  resetUI();
-  save();
-  setInterval(loop, 100);
-  if (bootOffline && bootOffline.sec >= 30) openOffline(bootOffline);
+  const loadedG = saved ? ET.load(saved) : null;
+  const bootGap = loadedG ? ET.offlineSeconds(loadedG, Date.now()) : 0;
+  if (bootGap >= 1800) {      // 離線超過 30 分鐘：補算要一點時間，先顯示「計算中」，等畫面畫出來再開始算
+    $('#boot').hidden = false;
+    requestAnimationFrame(() => setTimeout(() => start(loadedG, bootGap), 30));
+  } else start(loadedG, bootGap);
   window.__town = { get G() { return G; }, ET };
 })();

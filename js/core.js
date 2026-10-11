@@ -58,8 +58,9 @@
     return G;
   };
 
+  const DEX_KEY = {};
   function discover(G, s, t) {
-    const k = s + ':' + t;
+    const k = (DEX_KEY[s] || (DEX_KEY[s] = []))[t] || (DEX_KEY[s][t] = s + ':' + t);
     if (G.dex[k]) return;
     G.dex[k] = 1;
     if (t >= 2) ev(G, { t: 'toast', text: `📖 發現 ${ET.SERIES[s].tiers[t - 1]} ${ET.SERIES[s].names[t - 1]}` });
@@ -241,13 +242,24 @@
   // 自動出貨：盤面擠了（>= SHIP_HIGH）→ 先一鍵合成到最高階（合成會讓同樣的料變值錢），
   // 還是太擠才賣，而且優先賣最貴的（一格換最多錢），賣到剩 SHIP_LOW 個
   // 客人在等的貨、空貨架設定的商品（reservedSet）不合、不賣：不然「優先賣最貴的」會先賣掉客人要的
+  // 裝備：還能合成升階的不賣；已經是 5 階的，每個系列留 4 件（隊伍最多 4 位，夠換），多的才賣。
+  // 不然離線久了，掉落的 5 階裝備會把合成盤塞滿，農夫收不進去就停工
   function shipStep(G) {
     if (ET.count(G) < ET.SHIP_HIGH) return;
-    ET.mergeAll(G, ET.reservedSet(G));
+    let keep = ET.reservedSet(G);
+    if (ET.mergeAll(G, keep) > 0) keep = ET.reservedSet(G);          // 合成後索引變了才需要重算
     if (ET.count(G) <= ET.SHIP_LOW) return;
-    const keep = ET.reservedSet(G);          // 合成後索引變了，重算
-    const order = [];
-    for (let i = 0; i < N; i++) { const it = G.board[i]; if (it && !keep.has(i) && !ET.isGear(it.s)) order.push([VAL[it.s][it.t], i]); }     // 裝備不自動賣
+    const order = [], topGear = {};
+    for (let i = 0; i < N; i++) {
+      const it = G.board[i];
+      if (!it || keep.has(i)) continue;
+      if (ET.isGear(it.s)) {
+        if (it.t < MAXT) continue;
+        topGear[it.s] = (topGear[it.s] || 0) + 1;
+        if (topGear[it.s] <= ET.ADV.partyMax) continue;
+      }
+      order.push([VAL[it.s][it.t], i]);
+    }
     order.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
     let n = ET.count(G), k = 0;
     while (n > ET.SHIP_LOW && k < order.length) { ET.sell(G, order[k++][1]); n--; }
@@ -286,9 +298,10 @@
     if (!(used >= 1)) return null;
     const before = { merges: G.stats.merges, earned: G.stats.earned, sold: G.stats.sold, h: Object.assign({}, G.stats.harvested),
       shop: { sales: G.shop.sales, lost: G.shop.lost, stolen: G.shop.stolen, revenue: G.shop.revenue },
-      adv: G.adv ? { stages: G.adv.stats.stages, defeats: G.adv.stats.defeats, coins: G.adv.stats.coins, drops: G.adv.stats.drops, lv: G.adv.heroes.reduce((m, h) => m + h.lvl, 0) } : null };
+      adv: G.adv ? { stages: G.adv.stats.stages, defeats: G.adv.stats.defeats, coins: G.adv.stats.coins, drops: G.adv.stats.drops, lv: G.adv.heroes.reduce((m, h) => m + h.lvl - 1, 0) } : { stages: 0, defeats: 0, coins: 0, drops: 0, lv: 0 } };
     const steps = Math.floor(used);
-    for (let i = 0; i < steps; i++) ET.tick(G, 1);
+    ET.quiet = true;                       // 離線補算不需要動畫事件，省下大量物件配置
+    try { for (let i = 0; i < steps; i++) ET.tick(G, 1); } finally { ET.quiet = false; }
     G.ev.length = 0;
     const harvested = {};
     for (const k in G.stats.harvested) {
@@ -296,9 +309,9 @@
       if (d > 0) harvested[k] = d;
     }
     return { sec: steps, rawSec: sec, capped: sec > cap, harvested, merges: G.stats.merges - before.merges, earned: G.stats.earned - before.earned, sold: G.stats.sold - before.sold,
-      advStages: G.adv && before.adv ? G.adv.stats.stages - before.adv.stages : 0, advDefeats: G.adv && before.adv ? G.adv.stats.defeats - before.adv.defeats : 0,
-      advCoins: G.adv && before.adv ? G.adv.stats.coins - before.adv.coins : 0, advDrops: G.adv && before.adv ? G.adv.stats.drops - before.adv.drops : 0,
-      advLevels: G.adv && before.adv ? G.adv.heroes.reduce((m, h) => m + h.lvl, 0) - before.adv.lv : 0,
+      advStages: G.adv ? G.adv.stats.stages - before.adv.stages : 0, advDefeats: G.adv ? G.adv.stats.defeats - before.adv.defeats : 0,
+      advCoins: G.adv ? G.adv.stats.coins - before.adv.coins : 0, advDrops: G.adv ? G.adv.stats.drops - before.adv.drops : 0,
+      advLevels: G.adv ? G.adv.heroes.reduce((m, h) => m + h.lvl - 1, 0) - before.adv.lv : 0,
       shopSales: G.shop.sales - before.shop.sales, shopRevenue: G.shop.revenue - before.shop.revenue, shopLost: G.shop.lost - before.shop.lost, shopStolen: G.shop.stolen - before.shop.stolen };
   };
   // 從存檔時間算出離線秒數；系統時間倒退 → 0

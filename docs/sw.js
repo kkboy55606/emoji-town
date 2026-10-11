@@ -1,5 +1,5 @@
 // 表情小鎮 service worker：離線可玩。版本號是內容雜湊，內容一變快取就換新。
-const VERSION = '4059850419';
+const VERSION = '29e17c08df';
 const CACHE = 'emojitown-' + VERSION;
 const ASSETS = ["./","index.html","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/apple-touch-icon.png","icons/favicon-32.png"];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS))); });

@@ -32,12 +32,23 @@
   };
 
   // ---------- 客人 ----------
-  function pickWant(G, minTier) {
-    const pool = [];
+  // 圖鑑裡可當客人需求的品項（已排序、解析好）。圖鑑沒變就重用上次的結果
+  const dexCache = new WeakMap();
+  function wantPool(G) {
+    let n = 0; for (const k in G.dex) n++;
+    const c = dexCache.get(G.dex);
+    if (c && c.n === n) return c.list;
+    const list = [];
     for (const k of Object.keys(G.dex).sort()) {
       const [s, ts] = k.split(':'), t = +ts;
-      if (ET.SERIES[s] && !ET.SERIES[s].gear && t >= minTier && t < MAXT) pool.push([{ s, t }, WANT_W[t] || 1]);
+      if (ET.SERIES[s] && !ET.SERIES[s].gear && t < MAXT) list.push({ s, t });
     }
+    dexCache.set(G.dex, { n, list });
+    return list;
+  }
+  function pickWant(G, minTier) {
+    const pool = [];
+    for (const w of wantPool(G)) if (w.t >= minTier) pool.push([w, WANT_W[w.t] || 1]);
     if (!pool.length) return null;
     let sum = 0; for (const p of pool) sum += p[1];
     let r = ET.rand(G) * sum;

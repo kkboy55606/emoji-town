@@ -225,6 +225,13 @@ button{font:inherit;color:inherit;cursor:pointer}
 .foodq button{flex:1;height:56px;border-radius:14px;border:2px dashed var(--line);background:var(--bg);font-size:28px}
 .foodq button.on{border-style:solid}
 
+/* ---- 離線很久回來：補算期間顯示的「計算中」畫面 ---- */
+#boot{position:fixed;inset:0;z-index:95;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
+#boot .big{font-size:64px;animation:bootspin 2.4s linear infinite}
+#boot p{margin:0;color:var(--dim);font-size:15px}
+@keyframes bootspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){#boot .big{animation:none}}
+
 </style>
 </head>
 <body>
@@ -281,6 +288,7 @@ button{font:inherit;color:inherit;cursor:pointer}
   </main>
   <nav id="tabs"></nav>
   <div id="modal"></div>
+  <div id="boot" hidden><div class="big">☀️</div><p>正在計算你不在的時候發生的事…</p></div>
 </div>
 <div id="fx"></div>
 <script>
@@ -489,8 +497,9 @@ button{font:inherit;color:inherit;cursor:pointer}
     return G;
   };
 
+  const DEX_KEY = {};
   function discover(G, s, t) {
-    const k = s + ':' + t;
+    const k = (DEX_KEY[s] || (DEX_KEY[s] = []))[t] || (DEX_KEY[s][t] = s + ':' + t);
     if (G.dex[k]) return;
     G.dex[k] = 1;
     if (t >= 2) ev(G, { t: 'toast', text: `📖 發現 ${ET.SERIES[s].tiers[t - 1]} ${ET.SERIES[s].names[t - 1]}` });
@@ -672,13 +681,24 @@ button{font:inherit;color:inherit;cursor:pointer}
   // 自動出貨：盤面擠了（>= SHIP_HIGH）→ 先一鍵合成到最高階（合成會讓同樣的料變值錢），
   // 還是太擠才賣，而且優先賣最貴的（一格換最多錢），賣到剩 SHIP_LOW 個
   // 客人在等的貨、空貨架設定的商品（reservedSet）不合、不賣：不然「優先賣最貴的」會先賣掉客人要的
+  // 裝備：還能合成升階的不賣；已經是 5 階的，每個系列留 4 件（隊伍最多 4 位，夠換），多的才賣。
+  // 不然離線久了，掉落的 5 階裝備會把合成盤塞滿，農夫收不進去就停工
   function shipStep(G) {
     if (ET.count(G) < ET.SHIP_HIGH) return;
-    ET.mergeAll(G, ET.reservedSet(G));
+    let keep = ET.reservedSet(G);
+    if (ET.mergeAll(G, keep) > 0) keep = ET.reservedSet(G);          // 合成後索引變了才需要重算
     if (ET.count(G) <= ET.SHIP_LOW) return;
-    const keep = ET.reservedSet(G);          // 合成後索引變了，重算
-    const order = [];
-    for (let i = 0; i < N; i++) { const it = G.board[i]; if (it && !keep.has(i) && !ET.isGear(it.s)) order.push([VAL[it.s][it.t], i]); }     // 裝備不自動賣
+    const order = [], topGear = {};
+    for (let i = 0; i < N; i++) {
+      const it = G.board[i];
+      if (!it || keep.has(i)) continue;
+      if (ET.isGear(it.s)) {
+        if (it.t < MAXT) continue;
+        topGear[it.s] = (topGear[it.s] || 0) + 1;
+        if (topGear[it.s] <= ET.ADV.partyMax) continue;
+      }
+      order.push([VAL[it.s][it.t], i]);
+    }
     order.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
     let n = ET.count(G), k = 0;
     while (n > ET.SHIP_LOW && k < order.length) { ET.sell(G, order[k++][1]); n--; }
@@ -717,9 +737,10 @@ button{font:inherit;color:inherit;cursor:pointer}
     if (!(used >= 1)) return null;
     const before = { merges: G.stats.merges, earned: G.stats.earned, sold: G.stats.sold, h: Object.assign({}, G.stats.harvested),
       shop: { sales: G.shop.sales, lost: G.shop.lost, stolen: G.shop.stolen, revenue: G.shop.revenue },
-      adv: G.adv ? { stages: G.adv.stats.stages, defeats: G.adv.stats.defeats, coins: G.adv.stats.coins, drops: G.adv.stats.drops, lv: G.adv.heroes.reduce((m, h) => m + h.lvl, 0) } : null };
+      adv: G.adv ? { stages: G.adv.stats.stages, defeats: G.adv.stats.defeats, coins: G.adv.stats.coins, drops: G.adv.stats.drops, lv: G.adv.heroes.reduce((m, h) => m + h.lvl - 1, 0) } : { stages: 0, defeats: 0, coins: 0, drops: 0, lv: 0 } };
     const steps = Math.floor(used);
-    for (let i = 0; i < steps; i++) ET.tick(G, 1);
+    ET.quiet = true;                       // 離線補算不需要動畫事件，省下大量物件配置
+    try { for (let i = 0; i < steps; i++) ET.tick(G, 1); } finally { ET.quiet = false; }
     G.ev.length = 0;
     const harvested = {};
     for (const k in G.stats.harvested) {
@@ -727,9 +748,9 @@ button{font:inherit;color:inherit;cursor:pointer}
       if (d > 0) harvested[k] = d;
     }
     return { sec: steps, rawSec: sec, capped: sec > cap, harvested, merges: G.stats.merges - before.merges, earned: G.stats.earned - before.earned, sold: G.stats.sold - before.sold,
-      advStages: G.adv && before.adv ? G.adv.stats.stages - before.adv.stages : 0, advDefeats: G.adv && before.adv ? G.adv.stats.defeats - before.adv.defeats : 0,
-      advCoins: G.adv && before.adv ? G.adv.stats.coins - before.adv.coins : 0, advDrops: G.adv && before.adv ? G.adv.stats.drops - before.adv.drops : 0,
-      advLevels: G.adv && before.adv ? G.adv.heroes.reduce((m, h) => m + h.lvl, 0) - before.adv.lv : 0,
+      advStages: G.adv ? G.adv.stats.stages - before.adv.stages : 0, advDefeats: G.adv ? G.adv.stats.defeats - before.adv.defeats : 0,
+      advCoins: G.adv ? G.adv.stats.coins - before.adv.coins : 0, advDrops: G.adv ? G.adv.stats.drops - before.adv.drops : 0,
+      advLevels: G.adv ? G.adv.heroes.reduce((m, h) => m + h.lvl - 1, 0) - before.adv.lv : 0,
       shopSales: G.shop.sales - before.shop.sales, shopRevenue: G.shop.revenue - before.shop.revenue, shopLost: G.shop.lost - before.shop.lost, shopStolen: G.shop.stolen - before.shop.stolen };
   };
   // 從存檔時間算出離線秒數；系統時間倒退 → 0
@@ -885,12 +906,23 @@ button{font:inherit;color:inherit;cursor:pointer}
   };
 
   // ---------- 客人 ----------
-  function pickWant(G, minTier) {
-    const pool = [];
+  // 圖鑑裡可當客人需求的品項（已排序、解析好）。圖鑑沒變就重用上次的結果
+  const dexCache = new WeakMap();
+  function wantPool(G) {
+    let n = 0; for (const k in G.dex) n++;
+    const c = dexCache.get(G.dex);
+    if (c && c.n === n) return c.list;
+    const list = [];
     for (const k of Object.keys(G.dex).sort()) {
       const [s, ts] = k.split(':'), t = +ts;
-      if (ET.SERIES[s] && !ET.SERIES[s].gear && t >= minTier && t < MAXT) pool.push([{ s, t }, WANT_W[t] || 1]);
+      if (ET.SERIES[s] && !ET.SERIES[s].gear && t < MAXT) list.push({ s, t });
     }
+    dexCache.set(G.dex, { n, list });
+    return list;
+  }
+  function pickWant(G, minTier) {
+    const pool = [];
+    for (const w of wantPool(G)) if (w.t >= minTier) pool.push([w, WANT_W[w.t] || 1]);
     if (!pool.length) return null;
     let sum = 0; for (const p of pool) sum += p[1];
     let r = ET.rand(G) * sum;
@@ -1198,11 +1230,13 @@ button{font:inherit;color:inherit;cursor:pointer}
   const ET = root.ET, AD = ET.ADV, MAXT = ET.MAXT, N = ET.COLS * ET.ROWS;
   const SLOTS = ['weapon', 'armor', 'trinket'];
   const ev = (G, o) => { if (G.ev.length < 300) G.ev.push(o); };
+  // ET.quiet = true 時（離線補算）不需要動畫事件：熱點處先判斷，連事件物件都不要配置
+  const GMUL = [0]; for (let t = 1; t <= MAXT; t++) GMUL.push(Math.pow(ET.GEAR_MUL, t - 1));
   const lvMul = l => 1 + 0.06 * (l - 1);      // 每級只 +6%：升級是輔助，推進主要靠裝備
   const roll = G => 0.9 + 0.2 * ET.rand(G);
   ET.SLOTS = SLOTS;
   ET.heroXpNeed = l => Math.round(20 * Math.pow(l, 1.5));
-  ET.gearMul = t => Math.pow(ET.GEAR_MUL, t - 1);
+  ET.gearMul = t => GMUL[t];
   ET.isGear = s => !!(ET.SERIES[s] && ET.SERIES[s].gear);
 
   ET.newAdv = () => ({
@@ -1213,12 +1247,14 @@ button{font:inherit;color:inherit;cursor:pointer}
   });
 
   // ---------- 屬性 ----------
+  const NO_FOOD = Object.freeze({ atk: 0, def: 0, hp: 0, regen: 0, xp: 0 });
+  const FOOD_FULL = {};      // 每種料理補齊欄位後的唯讀表，查表就好，不用每次合併出新物件
+  for (const s in ET.FOOD) { FOOD_FULL[s] = {}; for (const t in ET.FOOD[s]) FOOD_FULL[s][t] = Object.freeze(Object.assign({ atk: 0, def: 0, hp: 0, regen: 0, xp: 0 }, ET.FOOD[s][t])); }
   function foodMod(A) {
-    const f = A.food.act, m = { atk: 0, def: 0, hp: 0, regen: 0, xp: 0 };
-    if (f && ET.FOOD[f.s] && ET.FOOD[f.s][f.t]) Object.assign(m, ET.FOOD[f.s][f.t]);
-    return m;
+    const f = A.food.act;
+    return (f && FOOD_FULL[f.s] && FOOD_FULL[f.s][f.t]) || NO_FOOD;
   }
-  ET.foodMod = G => (G.adv ? foodMod(G.adv) : { atk: 0, def: 0, hp: 0, regen: 0, xp: 0 });
+  ET.foodMod = G => (G.adv ? foodMod(G.adv) : NO_FOOD);
   // 英雄目前屬性：職業底 × 等級 + 裝備（每高 1 階 ×1.7）× 料理加成
   ET.heroStats = function (G, h) {
     const R = ET.ROLES[h.role], k = lvMul(h.lvl), m = foodMod(G.adv);
@@ -1423,7 +1459,7 @@ button{font:inherit;color:inherit;cursor:pointer}
   // ---------- 戰鬥（1 秒一回合） ----------
   function strike(G, e, dmg, fromHero) {
     e.hp -= dmg;
-    ev(G, { t: 'hit', side: 'enemy', i: G.adv.battle.enemies.indexOf(e), dmg, from: fromHero });
+    if (!ET.quiet) ev(G, { t: 'hit', side: 'enemy', i: G.adv.battle.enemies.indexOf(e), dmg, from: fromHero });
   }
   function battleStep(G) {
     const A = G.adv, heroes = A.heroes;
@@ -1437,18 +1473,21 @@ button{font:inherit;color:inherit;cursor:pointer}
     if (!A.battle) A.battle = { enemies: makeEnemies(A.area, A.stage), t: 0 };
     const B = A.battle, fm = foodMod(A);
     B.t++;
-    if (fm.regen) for (const h of heroes) if (h.hp > 0) h.hp = Math.min(maxHp(G, h), h.hp + fm.regen);
+    const S = heroes.map(h => ET.heroStats(G, h));            // 這一回合每位英雄的屬性（這回合內不會變）
+    const idxOf = h => heroes.indexOf(h);
+    if (fm.regen) heroes.forEach((h, i) => { if (h.hp > 0) h.hp = Math.min(S[i].hp, h.hp + fm.regen); });
     const alive = () => heroes.filter(h => h.hp > 0), mobs = () => B.enemies.filter(e => e.hp > 0);
     // 英雄行動
-    for (const h of heroes) {
+    for (let hi = 0; hi < heroes.length; hi++) {
+      const h = heroes[hi];
       if (h.hp <= 0) continue;
       const ms = mobs(); if (!ms.length) break;
-      const st = ET.heroStats(G, h);
+      const st = S[hi];
       if (h.role === 'mage') { for (const e of ms) strike(G, e, Math.max(1, Math.round(st.atk * 0.6 * roll(G) - e.def)), h.id); }
       else if (h.role === 'elf' && B.t % 2 === 0) {
-        let t = null, tr = 2;
-        for (const x of alive()) { const r = x.hp / maxHp(G, x); if (r < tr) { tr = r; t = x; } }
-        if (t) { const heal = Math.max(3, Math.round(st.atk * 2.2)); t.hp = Math.min(maxHp(G, t), t.hp + heal); ev(G, { t: 'heal', hid: t.id, v: heal }); }
+        let t = -1, tr = 2;
+        for (let k = 0; k < heroes.length; k++) { if (heroes[k].hp <= 0) continue; const r = heroes[k].hp / S[k].hp; if (r < tr) { tr = r; t = k; } }
+        if (t >= 0) { const heal = Math.max(3, Math.round(st.atk * 2.2)); heroes[t].hp = Math.min(S[t].hp, heroes[t].hp + heal); if (!ET.quiet) ev(G, { t: 'heal', hid: heroes[t].id, v: heal }); }
       } else {
         const tgt = h.role === 'archer' ? ms[ms.length - 1] : ms[0];
         strike(G, tgt, Math.max(1, Math.round(st.atk * roll(G) - tgt.def)), h.id);
@@ -1460,9 +1499,9 @@ button{font:inherit;color:inherit;cursor:pointer}
       const al = alive(); if (!al.length) break;
       const kn = al.filter(h => h.role === 'knight');
       const t = (kn.length && ET.rand(G) < 0.6) ? kn[Math.floor(ET.rand(G) * kn.length)] : al[Math.floor(ET.rand(G) * al.length)];
-      const dmg = Math.max(1, Math.round(e.atk * roll(G) - ET.heroStats(G, t).def));
+      const dmg = Math.max(1, Math.round(e.atk * roll(G) - S[idxOf(t)].def));
       t.hp -= dmg; if (t.hp < 0) t.hp = 0;
-      ev(G, { t: 'hit', side: 'hero', hid: t.id, dmg });
+      if (!ET.quiet) ev(G, { t: 'hit', side: 'hero', hid: t.id, dmg });
     }
     if (!alive().length) lose(G);
   }
@@ -1540,7 +1579,7 @@ button{font:inherit;color:inherit;cursor:pointer}
   // ---------- 儲存 ----------
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
-  function save() { lsSet(KEY, ET.save(G, Date.now())); }
+  function save() { if (G) lsSet(KEY, ET.save(G, Date.now())); }
   function loadPref() { try { const o = JSON.parse(lsGet(PREF)); if (o && typeof o === 'object') pref = Object.assign(pref, o); } catch (e) { } }
   function savePref() { lsSet(PREF, JSON.stringify(pref)); }
 
@@ -2321,19 +2360,26 @@ button{font:inherit;color:inherit;cursor:pointer}
   // ---------- 啟動 ----------
   loadPref();
   let bootOffline = null;
+  function start(loaded, gap) {
+    if (loaded) {
+      G = loaded;
+      if (gap >= 1) { bootOffline = ET.offline(G, gap); if (bootOffline) bootOffline.rawSec = gap; }
+      G.ev.length = 0;
+    } else G = ET.newState(Date.now());
+    last = Date.now();
+    resetUI();
+    save();
+    setInterval(loop, 100);
+    $('#boot').hidden = true;
+    if (bootOffline && bootOffline.sec >= 30) openOffline(bootOffline);
+  }
   const saved = lsGet(KEY);
-  const loaded = saved ? ET.load(saved) : null;
-  if (loaded) {
-    G = loaded;
-    const gap = ET.offlineSeconds(G, Date.now());
-    if (gap >= 1) { bootOffline = ET.offline(G, gap); if (bootOffline) bootOffline.rawSec = gap; }
-    G.ev.length = 0;
-  } else G = ET.newState(Date.now());
-  last = Date.now();
-  resetUI();
-  save();
-  setInterval(loop, 100);
-  if (bootOffline && bootOffline.sec >= 30) openOffline(bootOffline);
+  const loadedG = saved ? ET.load(saved) : null;
+  const bootGap = loadedG ? ET.offlineSeconds(loadedG, Date.now()) : 0;
+  if (bootGap >= 1800) {      // 離線超過 30 分鐘：補算要一點時間，先顯示「計算中」，等畫面畫出來再開始算
+    $('#boot').hidden = false;
+    requestAnimationFrame(() => setTimeout(() => start(loadedG, bootGap), 30));
+  } else start(loadedG, bootGap);
   window.__town = { get G() { return G; }, ET };
 })();
 

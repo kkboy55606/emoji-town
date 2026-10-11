@@ -104,6 +104,18 @@ const getJSON = url => new Promise((res, rej) => http.get(url, r => { let d = ''
     // ---- 其他分頁都能正常顯示 ----
     const tabs = await ev(`(async()=>{const sl=ms=>new Promise(r=>setTimeout(r,ms)); const res=[]; for(const t of ['garden','merge','shop','quest']){document.querySelector('.tab[data-t="'+t+'"]').click(); await sl(250); res.push(t+':'+(document.querySelector('.tab.on').dataset.t===t && !document.getElementById('v-'+t).hidden));} return res})()`);
     check('四個分頁都能切換並顯示', tabs.every(x => x.endsWith(':true')), tabs.join(' '));
+    // ---- 離線很久回來：先顯示計算中，算完顯示歡迎回來 ----
+    await ev(`(()=>{const {G,ET}=window.__town; G.up.farmer=1; G.plots.forEach((p,i)=>ET.plant(G,i,'wheat')); const s=ET.save(G,Date.now()-3*3600*1000);
+      const o=Storage.prototype.setItem; Storage.prototype.setItem=function(k,v){ if(k==='emojitown.v1') return; return o.apply(this,arguments); }; o.call(localStorage,'emojitown.v1',s); return true})()`);
+    events.length = 0; await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/index.html` });
+    let sawBoot = false, welcome = false;
+    for (let i = 0; i < 150; i++) {
+      await sleep(100);
+      const st = await ev(`(()=>({boot: !document.getElementById('boot').hidden, h2: (document.querySelector('#modal.on h2')||{}).textContent||''}))()`).catch(() => null);
+      if (!st) continue; if (st.boot) sawBoot = true; if (/歡迎回來/.test(st.h2)) { welcome = true; break; }
+    }
+    const bootHidden = await ev(`document.getElementById('boot').hidden`);
+    check('離線 3 小時回來：算完顯示「歡迎回來」、計算中畫面已收起', welcome && bootHidden, JSON.stringify({ sawBoot, welcome, bootHidden }));
     // ---- ⑧ 沒有 JS 錯誤 ----
     const errs = events.filter(e => e.method === 'Runtime.exceptionThrown' || (e.method === 'Log.entryAdded' && e.params.entry.level === 'error' && !/favicon/.test(e.params.entry.text + (e.params.entry.url || ''))));
     check('⑧ 全程沒有 JavaScript 錯誤', errs.length === 0, errs.length ? JSON.stringify(errs[0]).slice(0, 300) : '');

@@ -208,3 +208,10 @@ button{font:inherit;color:inherit;cursor:pointer}
 .foodq{display:flex;gap:8px;margin:8px 0}
 .foodq button{flex:1;height:56px;border-radius:14px;border:2px dashed var(--line);background:var(--bg);font-size:28px}
 .foodq button.on{border-style:solid}
+
+/* ---- 離線很久回來：補算期間顯示的「計算中」畫面 ---- */
+#boot{position:fixed;inset:0;z-index:95;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
+#boot .big{font-size:64px;animation:bootspin 2.4s linear infinite}
+#boot p{margin:0;color:var(--dim);font-size:15px}
+@keyframes bootspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){#boot .big{animation:none}}
