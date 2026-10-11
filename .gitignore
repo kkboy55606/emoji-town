@@ -1,0 +1,7 @@
+# 產生物與暫存（docs/ 是要上 GitHub Pages 的，要提交）
+dist/
+node_modules/
+.tmp_site/
+.prof/
+*.tmp
+*.bak

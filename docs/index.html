@@ -1,0 +1,1791 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>表情小鎮</title>
+<meta name="theme-color" content="#fdf6e3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1d1a14" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="表情小鎮">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+:root{
+  --H:100dvh;--Hmax:none;
+  --bg:#fdf6e3;--panel:#fffdf6;--line:#eadfc2;--text:#3b3226;--dim:#8a7c66;
+  --accent:#ff9f43;--accent-d:#e8832a;--good:#4caf50;--bad:#e5484d;
+  --soil:#d9b48a;--soil2:#c89b6d;--cell:#f3e9cf;--cell2:#eadcb8;--shadow:0 2px 0 #00000014;
+  color-scheme:light;
+  /* 手機的瀏海 / 底部手勢列：Artifact 外殼也會加同樣的值，重複宣告不會疊加 */
+  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#1d1a14;--panel:#2a251c;--line:#3d3526;--text:#f3ead8;--dim:#a99c84;--soil:#6b4c30;--soil2:#5b4128;--cell:#332d21;--cell2:#3d3526;--shadow:0 2px 0 #0006;color-scheme:dark}
+}
+:root[data-theme="dark"]{--bg:#1d1a14;--panel:#2a251c;--line:#3d3526;--text:#f3ead8;--dim:#a99c84;--soil:#6b4c30;--soil2:#5b4128;--cell:#332d21;--cell2:#3d3526;--shadow:0 2px 0 #0006;color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);overscroll-behavior:none;
+  font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC","Microsoft JhengHei",sans-serif;
+  -webkit-user-select:none;user-select:none}
+button{font:inherit;color:inherit;cursor:pointer}
+[hidden]{display:none!important}
+
+#app{height:100%;max-height:var(--Hmax);max-width:480px;margin:0 auto;display:flex;flex-direction:column;position:relative;
+  padding-inline:16px}
+#top{flex:none;display:flex;align-items:center;gap:8px;padding:10px 0 6px}
+#coins{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;box-shadow:var(--shadow);font-size:20px}
+#coins b{font-variant-numeric:tabular-nums;min-width:2ch}
+.spacer{flex:1}
+.tb{position:relative;width:44px;height:44px;border-radius:14px;border:1px solid var(--line);background:var(--panel);font-size:20px;padding:0;box-shadow:var(--shadow)}
+.tb:active{transform:translateY(1px)}
+.dot{position:absolute;top:5px;right:5px;width:11px;height:11px;border-radius:50%;background:var(--bad);border:2px solid var(--panel)}
+#hint{flex:none;min-height:30px;padding:2px 4px 6px;font-size:14px;color:var(--dim);text-align:center}
+#hint:not(:empty){color:var(--text)}
+#views{flex:1;min-height:0;position:relative}
+.view{height:100%;display:flex;flex-direction:column;align-items:center;gap:10px;overflow:auto;padding-bottom:6px}
+
+/* ---- 花園 ---- */
+#seeds{display:flex;gap:6px;width:min(100%,420px);flex:none;padding-top:10px}
+.seed{flex:1;min-width:0;border:2px solid var(--line);border-radius:14px;background:var(--panel);padding:6px 2px;display:flex;flex-direction:column;align-items:center;line-height:1.2;box-shadow:var(--shadow)}
+.seed b{font-size:24px;font-weight:400}
+.seed small{font-size:11px;color:var(--dim)}
+.seed.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel))}
+.seed.lock{opacity:.5}
+#plots{display:grid;grid-template-columns:repeat(var(--cols,3),1fr);gap:8px;width:min(100%,420px,calc((var(--H) - 330px) * var(--cols,3) / var(--rows,3)));touch-action:none;flex:none}
+.plot{position:relative;aspect-ratio:1;border:0;border-radius:18px;padding:0;overflow:hidden;
+  background:radial-gradient(circle at 30% 25%,var(--soil),var(--soil2));box-shadow:inset 0 -4px 0 #0000001f,var(--shadow);touch-action:none}
+.plot .pe{position:absolute;inset:0 0 8px;display:grid;place-items:center;font-size:calc(var(--pw,80px) * .52);transform:scale(var(--s,1));transition:transform .25s;pointer-events:none}
+.plot.empty::after{content:"＋";position:absolute;inset:0;display:grid;place-items:center;font-size:28px;color:#ffffff88;pointer-events:none}
+.plot .pb{position:absolute;left:12%;right:12%;bottom:7px;height:6px;border-radius:3px;background:#0003;overflow:hidden;pointer-events:none}
+.plot .pb i{display:block;height:100%;background:#ffe08a;transition:width .1s linear}
+.plot.ripe{box-shadow:0 0 0 3px #ffd84d,0 0 18px #ffd84dcc,inset 0 -4px 0 #0000001f}
+.plot.ripe .pe{animation:bounce .9s ease-in-out infinite}
+.plot.ripe .pb i{background:#7be87b}
+.plot.pop .pe{animation:pop .3s}
+@keyframes bounce{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-6%) scale(1.08)}}
+@keyframes pop{0%{transform:scale(.3)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+#gfoot{display:flex;gap:8px;width:min(100%,420px);flex:none}
+.btn{flex:1;border:0;border-radius:14px;padding:11px 10px;font-weight:700;font-size:15px;background:var(--accent);color:#3a2300;box-shadow:0 3px 0 var(--accent-d)}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--accent-d)}
+.btn.ghost{background:var(--panel);color:var(--text);border:1px solid var(--line);box-shadow:var(--shadow)}
+.btn:disabled,.btn.off{opacity:.45}
+#boardInfo,#autoInfo{flex:none;font-size:13px;color:var(--dim);text-align:center;min-height:18px}
+
+/* ---- 合成盤 ---- */
+#board{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;width:min(100%,420px,calc((var(--H) - 390px) * 5 / 6));touch-action:none;flex:none}
+.cell{position:relative;aspect-ratio:1;border-radius:14px;background:var(--cell);box-shadow:inset 0 2px 0 #00000012}
+.item{position:absolute;inset:0;display:grid;place-items:center;font-size:calc(var(--cw,60px) * .62);border-radius:14px;touch-action:none;cursor:grab}
+.item .t{position:absolute;right:5px;bottom:2px;font-size:calc(var(--cw,60px) * .2);font-weight:800;color:var(--dim);pointer-events:none}
+.item.max{background:radial-gradient(circle,#ffe08a99,transparent 70%)}
+.cell.sel{outline:3px solid var(--accent);outline-offset:-1px;background:var(--cell2)}
+.cell.match{animation:pulse .8s ease-in-out infinite}
+.cell.dragging .item{opacity:.25}
+.cell.merged .item{animation:pop .35s}
+@keyframes pulse{0%,100%{outline:3px solid #4caf5000}50%{outline:3px solid #4caf50}}
+#mergebar{display:flex;gap:8px;width:min(100%,420px);flex:none}
+#mergebar .btn{flex:none;width:112px;padding:0 8px;font-size:14px}
+#sellzone{flex:1;min-width:0;height:52px;display:grid;place-items:center;border:2px dashed var(--line);border-radius:16px;font-weight:700;color:var(--dim);background:var(--panel)}
+#sellzone.over{border-color:var(--accent);color:var(--text);background:color-mix(in srgb,var(--accent) 18%,var(--panel))}
+.dragghost{position:fixed;z-index:60;pointer-events:none;transform:translate(-50%,-60%) scale(1.15);font-size:44px;filter:drop-shadow(0 6px 6px #0004)}
+
+/* ---- 底部分頁 ---- */
+#tabs{flex:none;display:flex;gap:4px;padding:6px 0 8px}
+.tab{position:relative;flex:1;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:6px 0 5px;display:flex;flex-direction:column;align-items:center;line-height:1.15;box-shadow:var(--shadow)}
+.tab b{font-size:22px;font-weight:400}
+.tab small{font-size:11px;color:var(--dim)}
+.tab.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel))}
+.tab.on small{color:var(--text);font-weight:700}
+.tab.lock{opacity:.5}
+.tab.lock::after{content:"🔒";position:absolute;top:1px;right:4px;font-size:11px}
+
+/* ---- 浮字 / 提示 ---- */
+#fx{position:fixed;inset:0;pointer-events:none;z-index:70;overflow:hidden}
+.float{position:absolute;transform:translate(-50%,-50%);font-weight:800;font-size:20px;color:var(--text);text-shadow:0 0 3px var(--bg),0 0 3px var(--bg),0 0 6px var(--bg);animation:rise .9s ease-out forwards;white-space:nowrap}
+@keyframes rise{0%{opacity:0;transform:translate(-50%,-20%)}15%{opacity:1}100%{opacity:0;transform:translate(-50%,-190%)}}
+#toast{position:fixed;left:50%;top:max(70px,env(safe-area-inset-top));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:999px;font-weight:700;font-size:14px;opacity:0;transition:opacity .2s;z-index:90;pointer-events:none;max-width:92vw;text-align:center}
+#toast.on{opacity:.95}
+
+/* ---- Modal ---- */
+#modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;padding:14px;z-index:80}
+#modal.on{display:flex}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px;width:min(100%,440px);max-height:100%;overflow:auto;-webkit-user-select:text;user-select:text}
+.card h2{margin:0 0 8px;font-size:22px;text-align:center}
+.card p{margin:6px 0;font-size:14px;color:var(--dim);line-height:1.6}
+.card .big{font-size:52px;text-align:center;line-height:1.1}
+.card .btn{display:block;width:100%;margin-top:10px}
+.card textarea{width:100%;height:96px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);padding:8px;font-size:12px;word-break:break-all;-webkit-user-select:text;user-select:text}
+.up{display:flex;align-items:center;gap:10px;padding:10px;margin:8px 0;border:1px solid var(--line);border-radius:16px;background:var(--bg)}
+.up .ue{font-size:30px;width:40px;text-align:center}
+.up .ub{flex:1;min-width:0;line-height:1.35}
+.up .ub b{font-size:16px}
+.up .ub small{display:block;font-size:12px;color:var(--dim)}
+.up .btn{width:auto;margin:0;padding:9px 12px;white-space:nowrap;flex:none}
+.sum{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:20px;margin:8px 0}
+.row{display:flex;gap:8px}
+
+/* ---- 商店 ---- */
+#shopHead{width:min(100%,420px);display:flex;justify-content:space-between;align-items:center;flex:none;font-size:13px;color:var(--dim)}
+#stars{font-size:18px;letter-spacing:1px;color:var(--text)}
+#stars small{font-size:12px;color:var(--dim);margin-left:4px;letter-spacing:0}
+#lane{width:min(100%,420px);height:100px;display:flex;gap:8px;align-items:flex-end;flex:none;padding-top:14px}
+#lane:empty::before{content:"店裡沒有客人… 😴";margin:auto;color:var(--dim);font-size:14px}
+.cust{position:relative;flex:1;min-width:0;max-width:78px;height:80px;border-radius:16px;border:2px solid var(--line);background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:var(--shadow);cursor:pointer;touch-action:manipulation}
+.cust .face{font-size:30px;line-height:1;margin-top:6px}
+.cust .bub{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:0 6px;font-size:17px;white-space:nowrap;line-height:1.35}
+.cust .pat{position:absolute;left:8px;right:8px;bottom:6px;height:5px;border-radius:3px;background:#0002;overflow:hidden}
+.cust .pat i{display:block;height:100%;background:var(--good)}
+.cust.ok{border-color:var(--good)}
+.cust.ok .bub{border-color:var(--good)}
+.cust.warn .pat i{background:var(--bad)}
+.cust.noble{border-color:#d4a017}
+.cust.thief{border-color:var(--bad);animation:wiggle .35s infinite}
+@keyframes wiggle{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+#shelves{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:min(100%,420px);flex:none}
+.shelf{position:relative;aspect-ratio:1;border-radius:16px;border:2px dashed var(--line);background:var(--cell);padding:0;display:grid;place-items:center;font-size:calc(var(--sw,70px) * .5)}
+.shelf.full{border-style:solid;background:var(--panel);box-shadow:var(--shadow)}
+.shelf .tpl{opacity:.28}
+.shelf .plus{font-size:26px;color:var(--dim)}
+.shelf .t{position:absolute;right:6px;top:3px;font-size:12px;font-weight:800;color:var(--dim)}
+.shelf .pr{position:absolute;left:0;right:0;bottom:3px;text-align:center;font-size:11px;font-weight:700;color:var(--dim)}
+.shelf .em{display:block;transform:translateY(-4px)}
+#shopBtns{display:flex;gap:8px;width:min(100%,420px);flex:none}
+#shopInfo{flex:none;font-size:13px;color:var(--dim);text-align:center;min-height:18px;width:min(100%,420px)}
+.pick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0}
+.pk{border:1px solid var(--line);border-radius:14px;background:var(--bg);padding:6px 0;display:flex;flex-direction:column;align-items:center;line-height:1.25;font-size:28px}
+.pk small{font-size:11px;color:var(--dim)}
+.up-h{margin:14px 2px 2px;font-size:13px;font-weight:700;color:var(--dim)}
+
+/* ---- 客人需求導向 ---- */
+.seed{position:relative}
+.seed .need{position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-style:normal;font-size:10px;font-weight:800;background:var(--accent);color:#3a2300;border-radius:9px;padding:1px 6px;white-space:nowrap;box-shadow:var(--shadow)}
+.cell.want{box-shadow:inset 0 0 0 3px #ff9f4388}
+#needBar{width:min(100%,420px);display:flex;align-items:center;gap:8px;flex:none}
+#needTxt{flex:1;min-width:0;font-size:13px;line-height:1.35}
+#needBar .btn{flex:none;width:112px;padding:8px;font-size:13px}
+.recipe{font-size:20px;text-align:center;padding:10px;margin:8px 0;border-radius:14px;background:var(--bg);line-height:1.7}
+
+/* 寬螢幕（桌面瀏覽器、被拉得很高的視窗）：遊戲高度上限 800px，不要被拉成幾千像素高；手機不受影響 */
+@media (min-width:700px){:root{--H:min(100dvh,800px);--Hmax:800px}}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div id="coins"><span class="ic">💰</span><b id="coinN">0</b></div>
+    <div class="spacer"></div>
+    <button id="bUp" class="tb" aria-label="升級">⬆️<i class="dot" hidden></i></button>
+    <button id="bSet" class="tb" aria-label="設定">⚙️</button>
+  </header>
+  <div id="hint"></div>
+  <main id="views">
+    <section id="v-garden" class="view">
+      <div id="seeds"></div>
+      <div id="plots"></div>
+      <div id="gfoot">
+        <button id="bExpand" class="btn"></button>
+        <button id="bAll" class="btn ghost"></button>
+      </div>
+      <div id="boardInfo"></div>
+    </section>
+    <section id="v-shop" class="view" hidden>
+      <div id="shopHead"><span id="stars"></span><span id="shopStat"></span></div>
+      <div id="lane"></div>
+      <div id="shelves"></div>
+      <div id="shopBtns">
+        <button id="bRestock" class="btn">🔄 補貨</button>
+        <button id="bTakeAll" class="btn ghost">📥 全部取回</button>
+      </div>
+      <div id="shopInfo"></div>
+    </section>
+    <section id="v-merge" class="view" hidden>
+      <div id="board"></div>
+      <div id="mergebar">
+        <div id="sellzone"><span id="sellTxt">💰 把東西拖到這裡賣出</span></div>
+        <button id="bMergeAll" class="btn">✨ 一鍵合成</button>
+      </div>
+      <div id="needBar" hidden><span id="needTxt"></span><button id="bNeed" class="btn">🎯 為客人備貨</button></div>
+      <div id="autoInfo"></div>
+    </section>
+  </main>
+  <nav id="tabs"></nav>
+  <div id="modal"></div>
+</div>
+<div id="fx"></div>
+<script>
+// 靜態資料表：作物、物品系列、升級。不含任何邏輯狀態。
+(function (root) {
+  'use strict';
+  const ET = root.ET = root.ET || {};
+
+  ET.VERSION = 1;
+  // 秒數顯示：10 以下留一位小數（6.8），以上取整；整數不帶 .0
+  ET.fmtSec = s => {
+    const v = s < 10 ? Math.round(s * 10) / 10 : Math.round(s);
+    return String(v);
+  };
+  ET.COLS = 5;
+  ET.ROWS = 6;
+  ET.MAXT = 5;                 // 物品最高階
+  ET.START_PLOTS = 9;          // 3×3
+  ET.SHIP_HIGH = 26;           // 自動出貨：盤面達到這個數量開始賣
+  ET.SHIP_LOW = 22;            // 賣到剩這個數量
+
+  // 注意：只用 Emoji 12 以前的字元（Windows 10 的字型沒有 🪵 🪙 🪨 這些 Emoji 13+）
+  ET.SERIES = {
+    wheat:  { name: '小麥', base: 1, tiers: ['🌾', '🍞', '🥪', '🍔', '🎂'], names: ['小麥', '麵包', '三明治', '漢堡', '蛋糕'] },
+    apple:  { name: '蘋果', base: 2, tiers: ['🍎', '🧃', '🥧', '🍷', '🏆'], names: ['蘋果', '果汁', '蘋果派', '蘋果酒', '金蘋果'] },
+    wood:   { name: '木材', base: 3, tiers: ['🌲', '🪓', '🏹', '🛋️', '🛶'], names: ['木材', '木板', '木弓', '家具', '木船'] },
+    flower: { name: '花',   base: 4, tiers: ['🌸', '🌼', '💐', '🌺', '🌹'], names: ['櫻花', '雛菊', '花束', '朱槿', '玫瑰'] }
+  };
+
+  // time = 長成所需秒數（未加成）；unlockAge = 遊戲時間（含離線）幾秒後解鎖
+  ET.CROPS = {
+    wheat:  { emoji: '🌾', series: 'wheat',  time: 10, unlockAge: 0,   hint: '' },
+    apple:  { emoji: '🍎', series: 'apple',  time: 20, unlockAge: 0,   hint: '' },
+    wood:   { emoji: '🌲', series: 'wood',   time: 40, unlockAge: 0,   hint: '' },
+    flower: { emoji: '🌸', series: 'flower', time: 30, unlockAge: 180, hint: '3 分鐘後解鎖' }
+  };
+
+  // 擴建田地：依序購買
+  ET.EXPAND = [
+    { n: 12, cost: 60 },
+    { n: 16, cost: 250 },
+    { n: 20, cost: 900 },
+    { n: 25, cost: 3500 }
+  ];
+
+  const botIv = l => 8 * Math.pow(0.8, l - 1);
+  ET.UPGRADES = [
+    { id: 'fert', group: 'farm', emoji: '🌱', name: '肥料', max: 10,
+      cost: l => Math.round(25 * Math.pow(1.6, l)),
+      desc: l => `作物長得更快：目前 +${l * 12}%（🌾 ${l ? '10 → ' : ''}${ET.fmtSec(10 / (1 + 0.12 * l))} 秒），下一級 +${(l + 1) * 12}%（🌾 ${ET.fmtSec(10 / (1 + 0.12 * (l + 1)))} 秒）` },
+    { id: 'click', group: 'farm', emoji: '👆', name: '點擊力', max: 10,
+      cost: l => Math.round(20 * Math.pow(1.7, l)),
+      desc: l => `點正在長的作物：目前加速 ${(1 + 0.5 * l).toFixed(1)} 秒，下一級 ${(1.5 + 0.5 * l).toFixed(1)} 秒` },
+    { id: 'farmer', group: 'farm', emoji: '🚜', name: '農夫', max: 1,
+      cost: () => 100,
+      desc: () => '作物熟了自動收成（盤面有空位時）。關掉遊戲也會繼續收' },
+    { id: 'bot', group: 'farm', emoji: '🤖', name: '合成機器人', max: 5,
+      cost: l => 300 * Math.pow(2, l),
+      desc: l => l === 0
+        ? '自動把 1 階的同物合成 2 階，每 8 秒一次'
+        : `目前每 ${botIv(l).toFixed(1)} 秒合成 ${Math.min(4, l)} 階以下；下一級每 ${botIv(l + 1).toFixed(1)} 秒、${Math.min(4, l + 1)} 階以下` },
+    { id: 'shipper', group: 'farm', emoji: '🚚', name: '自動出貨', max: 1,
+      cost: () => 200,
+      desc: () => '合成盤超過 26 個時：先自動合成到最高階，還是太擠就優先賣最貴的，留到 22 個' },
+    { id: 'offline', group: 'farm', emoji: '⏳', name: '離線上限', max: 8,
+      cost: l => Math.round(150 * Math.pow(2, l)),
+      desc: l => `關掉遊戲最多累積 ${4 + l} 小時，下一級 ${5 + l} 小時` }
+  ];
+  // ---- S2 商店 ----
+  ET.SHOP = {
+    baseShelves: 4,        // 起始貨架數（升級每級 +1，最多 12）
+    baseInterval: 10,      // 客人到達的基準間隔（秒）
+    queueBase: 3,          // 同時最多幾位客人（裝潢每級 +1）
+    priceBase: 1.5,        // 賣給客人的價格倍率（招牌每級 +0.1）；賣出區 / 自動出貨是 1 倍
+    tipRate: 0.25,         // 點客人立刻結帳的小費
+    serveDelay: 1,         // 有貨後多久結帳（秒）
+    restockEvery: 3,       // 店員補貨間隔（秒）
+    patience: { normal: 22, noble: 30, thief: 8 },
+    reserveMax: 20         // 自動化最多替客人 / 空貨架保留幾件。必須 < SHIP_LOW(22)，不然盤面被佔滿、自動出貨賣不掉、農夫會停工
+  };
+  ET.UPGRADES.push(
+    { id: 'shelf', group: 'shop', emoji: '📚', name: '貨架', max: 8,
+      cost: l => Math.round(80 * Math.pow(1.8, l)),
+      desc: l => `目前 ${4 + l} 格，下一級 ${5 + l} 格` },
+    { id: 'deco', group: 'shop', emoji: '🏮', name: '裝潢', max: 5,
+      cost: l => Math.round(150 * Math.pow(2.2, l)),
+      desc: l => `客人來得更勤（目前 +${l * 20}%），店裡可同時容納 ${3 + l} 位，下一級 ${4 + l} 位` },
+    { id: 'clerk', group: 'shop', emoji: '🛎️', name: '店員', max: 1,
+      cost: () => 400,
+      desc: () => '自動補貨：缺的貨先從合成盤合成出來再上架，客人想要的也會跟著補；並趕走小偷。關掉遊戲也會幫你顧店' },
+    { id: 'sign', group: 'shop', emoji: '🏷️', name: '招牌', max: 5,
+      cost: l => Math.round(250 * Math.pow(2.5, l)),
+      desc: l => `客人付的價格：目前 ×${(1.5 + 0.1 * l).toFixed(1)}，下一級 ×${(1.6 + 0.1 * l).toFixed(1)}` }
+  );
+  ET.UPGRADE_BY_ID = {};
+  ET.UPGRADES.forEach(u => { ET.UPGRADE_BY_ID[u.id] = u; });
+
+  // 還鎖著的分頁（之後的批次才會做）
+  ET.LOCKED_TABS = [
+    { id: 'guild', emoji: '🏛️', name: '公會', need: '下一個版本開放（開發中）' }
+  ];
+
+  // ---- S3 冒險 + 裝備 ----
+  // 裝備是合成盤上的「系列」：兩件一樣的合成 → 高一階（+1）。gear 欄位表示可裝備的欄位
+  ET.SERIES.blade = { name: '武器', base: 8, gear: 'weapon', tiers: ['🔪', '🗡️', '⚔️', '🔱', '⚡'], names: ['小刀', '短劍', '雙劍', '三叉戟', '雷霆'] };
+  ET.SERIES.plate = { name: '防具', base: 8, gear: 'armor', tiers: ['🧥', '🥋', '🛡️', '⛑️', '🏰'], names: ['布衣', '道服', '盾牌', '頭盔', '城牆'] };
+  ET.SERIES.charm = { name: '飾品', base: 12, gear: 'trinket', tiers: ['📿', '💍', '🧿', '🔮', '💎'], names: ['念珠', '戒指', '護符', '水晶球', '寶石'] };
+  ET.GEAR = { blade: { atk: 5 }, plate: { def: 3, hp: 15 }, charm: { atk: 1.5, def: 1, hp: 8 } };   // 1 階的屬性
+  ET.GEAR_MUL = 1.7;                                                                                // 每高 1 階 ×1.7
+  ET.SLOT_NAME = { weapon: '武器', armor: '防具', trinket: '飾品' };
+
+  ET.ROLES = {
+    knight: { emoji: '🛡️', name: '騎士', hp: 70, atk: 5, def: 3, note: '坦克：怪物優先打他' },
+    sword:  { emoji: '⚔️', name: '劍士', hp: 50, atk: 9, def: 1, note: '近戰輸出' },
+    archer: { emoji: '🏹', name: '弓手', hp: 36, atk: 8, def: 0, note: '遠程：優先打最後面的怪' },
+    mage:   { emoji: '🧙', name: '法師', hp: 30, atk: 7, def: 0, note: '範圍：同時打全體（60% 傷害）' },
+    elf:    { emoji: '🧝', name: '精靈', hp: 40, atk: 3, def: 1, note: '補師：每 2 秒治療最殘血的隊友' }
+  };
+  ET.AREAS = [
+    { id: 1, name: '森林', emoji: '🌲', def: 0, mobs: [['🐺', '野狼'], ['🐗', '野豬'], ['🐍', '毒蛇']], boss: ['🐻', '熊王'] },
+    { id: 2, name: '沙漠', emoji: '🏜️', def: 4, mobs: [['🦂', '蠍子'], ['🐫', '駱駝'], ['💀', '骷髏']], boss: ['🦅', '沙漠之鷹'] }
+  ];
+  ET.ADV = {
+    unlockEarned: 300,            // 商店開張後，累計賺到這麼多金幣就開放冒險
+    stages: 10,                   // 每區 10 關，第 10 關是 Boss
+    partyMax: 4,
+    recruitCost: [0, 150, 500, 1500],   // 第 1 位免費（開局送劍士）；S4 公會做好後改成公會招募
+    recoverSec: 10,               // 全滅後復活的秒數
+    holdWins: 6,                  // 全滅退一關後，先在那一關再贏幾場才往上推（避免卡在極限邊緣一直送死）
+    dropBoss: 0.5, dropNormal: 0.07,
+    heroMaxLv: 50
+  };
+  // 鍛造：1 階裝備。金幣每鍛造一次 ×1.15；材料是合成盤上的東西（折合 1 階個數），把花園接進裝備
+  ET.FORGE = [
+    { id: 'blade', s: 'blade', coins: 40, mats: { wood: 2 } },
+    { id: 'plate', s: 'plate', coins: 40, mats: { wood: 4 } },
+    { id: 'charm', s: 'charm', coins: 60, mats: { flower: 2 } }
+  ];
+  ET.FORGE_GROWTH = 1.15;
+  // 料理補給：帶上 2 階以上的料理，依系列與階數有不同加成；持續秒數 = 120 × 2^(階-2)
+  ET.FOOD = {
+    wheat: { 2: { hp: 0.10 }, 3: { def: 0.12 }, 4: { atk: 0.12 }, 5: { xp: 0.25 } },
+    apple: { 2: { regen: 2 }, 3: { hp: 0.20 }, 4: { atk: 0.08, def: 0.08 }, 5: { xp: 0.25, atk: 0.10 } }
+  };
+  ET.FOOD_SEC = t => 120 * Math.pow(2, t - 2);
+  ET.FOOD_QUEUE = 3;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+// 核心邏輯：不碰 DOM、不碰 Date.now()（時間都由呼叫端傳入），可在 Node 直接跑測試與模擬。
+(function (root) {
+  'use strict';
+  const ET = root.ET;
+  const N = ET.COLS * ET.ROWS, MAXT = ET.MAXT;
+
+  const ev = (G, o) => { if (G.ev.length < 300) G.ev.push(o); };
+  const speed = G => 1 + 0.12 * G.up.fert;
+  const boostSec = G => 1 + 0.5 * G.up.click;
+  const botInterval = l => 8 * Math.pow(0.8, l - 1);
+  const botMaxTier = l => Math.min(4, l);
+  const cropOpen = (G, c) => G.age >= ET.CROPS[c].unlockAge;
+  const cropTime = pl => ET.CROPS[pl.crop].time;
+  const isRipe = pl => !!pl.crop && pl.p >= cropTime(pl);
+  const space = G => G.board.indexOf(null);
+
+  ET.offlineCapHours = G => 4 + G.up.offline;
+  ET.botInterval = botInterval;
+  ET.botMaxTier = botMaxTier;
+  ET.speed = speed;
+  ET.cropSeconds = (G, crop) => ET.CROPS[crop].time / speed(G);     // 套用肥料後，這個作物實際幾秒長成
+  ET.isRipe = isRipe;
+  ET.cropOpen = cropOpen;
+  // 價值表：預先算好（離線補算會呼叫上千萬次，不能每次都 Math.pow）
+  const VAL = {};
+  for (const s in ET.SERIES) { VAL[s] = [0]; for (let t = 1; t <= MAXT; t++) VAL[s].push(Math.round(ET.SERIES[s].base * Math.pow(2.5, t - 1))); }
+  ET.value = (s, t) => VAL[s][t];
+
+  // ---------- 數字格式 ----------
+  ET.fmt = function (n) {
+    if (!isFinite(n)) return '∞';
+    n = Math.floor(Math.max(0, n));
+    if (n < 1000) return String(n);
+    if (n >= 1e15) return n.toExponential(2).replace('+', '');
+    const u = ['K', 'M', 'B', 'T'];
+    let v = n, i = -1;
+    while (v >= 999.5 && i < 3) { v /= 1000; i++; }
+    const s = v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : v.toFixed(0);
+    return (s.includes('.') ? s.replace(/\.?0+$/, '') : s) + u[i];
+  };
+
+  // ---------- 狀態 ----------
+  ET.newState = function (now) {
+    const G = {
+      v: ET.VERSION, age: 0, coins: 0, selected: 'wheat',
+      plots: [], board: new Array(N).fill(null), nextId: 1,
+      up: {},
+      expand: 0, botT: 0,
+      unlocked: { merge: false, shop: false, quest: false }, seen: {}, dex: {}, hints: {},
+      stats: { harvested: {}, merges: 0, sold: 0, earned: 0, taps: 0 },
+      ver: 0, ev: [], savedAt: now || 0
+    };
+    for (const u of ET.UPGRADES) G.up[u.id] = 0;
+    G.rs = (Math.imul((now | 0) || 1, 2654435761) >>> 0) || 1;
+    G.shop = ET.newShop(ET.SHOP.baseShelves);
+    G.adv = null;
+    for (let i = 0; i < ET.START_PLOTS; i++) G.plots.push({ crop: null, p: 0 });
+    return G;
+  };
+
+  function discover(G, s, t) {
+    const k = s + ':' + t;
+    if (G.dex[k]) return;
+    G.dex[k] = 1;
+    if (t >= 2) ev(G, { t: 'toast', text: `📖 發現 ${ET.SERIES[s].tiers[t - 1]} ${ET.SERIES[s].names[t - 1]}` });
+  }
+  ET.addItem = (G, slot, s, t) => addItem(G, slot, s, t);
+  function addItem(G, slot, s, t) {
+    G.board[slot] = { id: G.nextId++, s, t };
+    G.ver++;
+    discover(G, s, t);
+  }
+  function hasPair(G) {
+    const c = {};
+    for (const it of G.board) {
+      if (!it || it.t >= MAXT) continue;
+      const k = it.s + ':' + it.t;
+      if ((c[k] = (c[k] || 0) + 1) >= 2) return true;
+    }
+    return false;
+  }
+  function checkUnlocks(G) {
+    if (!G.unlocked.merge && (G.age >= 120 || hasPair(G))) {
+      G.unlocked.merge = true;
+      ev(G, { t: 'unlock', tab: 'merge' });
+    }
+    ET.advCheck(G);
+    if (!G.unlocked.shop) {
+      for (const k in G.dex) {
+        if (+k.split(':')[1] >= 2) { G.unlocked.shop = true; ev(G, { t: 'unlock', tab: 'shop' }); break; }
+      }
+    }
+  }
+
+  // ---------- 花園 ----------
+  function harvestInternal(G, i) {
+    const pl = G.plots[i], C = ET.CROPS[pl.crop];
+    const slot = space(G);
+    addItem(G, slot, C.series, 1);
+    pl.p = Math.max(0, pl.p - C.time);
+    G.stats.harvested[pl.crop] = (G.stats.harvested[pl.crop] || 0) + 1;
+    ev(G, { t: 'harvest', i, crop: pl.crop });
+  }
+  ET.harvest = function (G, i) {
+    const pl = G.plots[i];
+    if (!pl || !pl.crop) return { ok: false, why: 'empty' };
+    if (!isRipe(pl)) return { ok: false, why: 'growing' };
+    if (space(G) < 0) { ev(G, { t: 'full' }); return { ok: false, why: 'full' }; }
+    harvestInternal(G, i);
+    checkUnlocks(G);
+    return { ok: true };
+  };
+  ET.plant = function (G, i, crop) {
+    const pl = G.plots[i];
+    if (!pl || !ET.CROPS[crop] || !cropOpen(G, crop)) return false;
+    if (pl.crop) return false;
+    pl.crop = crop; pl.p = 0;
+    ev(G, { t: 'plant', i, crop });
+    return true;
+  };
+  // 點一格：空地→種；熟了→收；長中→加速（opts.boost=false 時不加速，用於滑動）
+  ET.tapPlot = function (G, i, opts) {
+    const pl = G.plots[i];
+    if (!pl) return { act: 'none' };
+    if (!pl.crop) return { act: ET.plant(G, i, G.selected) ? 'plant' : 'none' };
+    if (isRipe(pl)) { const r = ET.harvest(G, i); return { act: r.ok ? 'harvest' : (r.why === 'full' ? 'full' : 'none') }; }
+    if (opts && opts.boost === false) return { act: 'none' };
+    pl.p = Math.min(cropTime(pl), pl.p + boostSec(G));
+    G.stats.taps++;
+    ev(G, { t: 'boost', i });
+    return { act: 'boost' };
+  };
+  // 長按改種：已種了別的作物 → 換掉（進度歸零；熟了先收）
+  ET.replace = function (G, i, crop) {
+    const pl = G.plots[i];
+    if (!pl || !pl.crop || pl.crop === crop || !ET.CROPS[crop] || !cropOpen(G, crop)) return false;
+    if (isRipe(pl)) ET.harvest(G, i);
+    pl.crop = crop; pl.p = 0;
+    ev(G, { t: 'plant', i, crop });
+    return true;
+  };
+  ET.plantAll = function (G, crop) {
+    if (!ET.CROPS[crop] || !cropOpen(G, crop)) return 0;
+    let n = 0;
+    for (let i = 0; i < G.plots.length; i++) {
+      const pl = G.plots[i];
+      if (!pl.crop) { if (ET.plant(G, i, crop)) n++; }
+      else if (pl.crop !== crop && ET.replace(G, i, crop)) n++;
+    }
+    return n;
+  };
+  ET.select = function (G, crop) {
+    if (!ET.CROPS[crop] || !cropOpen(G, crop)) return false;
+    G.selected = crop; return true;
+  };
+
+  // ---------- 合成盤 ----------
+  ET.canMerge = function (G, a, b) {
+    const A = G.board[a], B = G.board[b];
+    return !!(A && B && a !== b && A.s === B.s && A.t === B.t && A.t < MAXT);
+  };
+  // 拖曳 / 點選的統一入口：空格=移動、同物同階=合成、其他=交換
+  ET.moveItem = function (G, a, b) {
+    if (a === b || a < 0 || b < 0 || a >= N || b >= N) return { ok: false };
+    const A = G.board[a], B = G.board[b];
+    if (!A) return { ok: false };
+    if (!B) { G.board[b] = A; G.board[a] = null; G.ver++; return { ok: true, kind: 'move', to: b }; }
+    if (ET.canMerge(G, a, b)) {
+      B.t++; G.board[a] = null; G.ver++; G.stats.merges++;
+      discover(G, B.s, B.t);
+      ev(G, { t: 'merge', to: b, tier: B.t, s: B.s });
+      checkUnlocks(G);
+      return { ok: true, kind: 'merge', to: b, tier: B.t };
+    }
+    G.board[a] = B; G.board[b] = A; G.ver++;
+    return { ok: true, kind: 'swap', to: b };
+  };
+  ET.sell = function (G, i) {
+    const it = G.board[i];
+    if (!it) return { ok: false };
+    const v = ET.value(it.s, it.t);
+    G.coins += v; G.stats.earned += v; G.stats.sold++;
+    G.board[i] = null; G.ver++;
+    ev(G, { t: 'sell', i, v });
+    return { ok: true, v };
+  };
+  ET.count = G => G.board.reduce((n, it) => n + (it ? 1 : 0), 0);
+  ET.hasPair = hasPair;
+  // 一鍵合成：由低階到高階，把盤面上所有成對的同物一路合到不能合（5 階封頂）。回傳合成次數
+  // keep（可選）：被客人佔著的盤面索引；成對的兩個「都」被佔著就不合（自動化用，手動按鈕不帶）
+  ET.mergeAll = function (G, keep) {
+    let n = 0;
+    for (let t = 1; t < MAXT; t++) {
+      const first = {};
+      for (let i = 0; i < N; i++) {
+        const it = G.board[i];
+        if (!it || it.t !== t) continue;
+        const s = it.s, f = first[s];
+        if (f == null) first[s] = i;
+        else {
+          if (keep && keep.has(f) && keep.has(i)) continue;
+          ET.moveItem(G, i, f); n++;
+          if (keep && (keep.has(f) || keep.has(i))) { keep.delete(i); keep.add(f); }
+          delete first[s];
+        }
+      }
+    }
+    return n;
+  };
+
+  function botStep(G) {
+    const maxT = botMaxTier(G.up.bot);
+    // 被客人佔著的貨：成對的兩個「都」被佔著就不合（合了件數會變少，貴族要 3 件會變 2 件）
+    const keep = G.unlocked.shop ? ET.reservedSet(G) : null;
+    const blocked = (a, b) => keep && keep.has(a) && keep.has(b);
+    // 有客人在等的話，先合成客人要的系列（只合成到他需要的階數以下）
+    if (G.unlocked.shop && G.shop.custs.length) {
+      for (const d of ET.demand(G)) {
+        for (let t = 1; t <= Math.min(maxT, d.t - 1); t++) {
+          let first = -1;
+          for (let i = 0; i < N; i++) {
+            const it = G.board[i];
+            if (!it || it.s !== d.s || it.t !== t) continue;
+            if (first < 0) first = i;
+            else if (!blocked(first, i)) { ET.moveItem(G, i, first); return true; }
+          }
+        }
+      }
+    }
+    for (let t = 1; t <= maxT; t++) {
+      const first = {};
+      for (let i = 0; i < N; i++) {
+        const it = G.board[i];
+        if (!it || it.t !== t) continue;
+        if (first[it.s] == null) first[it.s] = i;
+        else if (!blocked(first[it.s], i)) { ET.moveItem(G, i, first[it.s]); return true; }
+      }
+    }
+    return false;
+  }
+  // 自動出貨：盤面擠了（>= SHIP_HIGH）→ 先一鍵合成到最高階（合成會讓同樣的料變值錢），
+  // 還是太擠才賣，而且優先賣最貴的（一格換最多錢），賣到剩 SHIP_LOW 個
+  // 客人在等的貨、空貨架設定的商品（reservedSet）不合、不賣：不然「優先賣最貴的」會先賣掉客人要的
+  function shipStep(G) {
+    if (ET.count(G) < ET.SHIP_HIGH) return;
+    ET.mergeAll(G, ET.reservedSet(G));
+    if (ET.count(G) <= ET.SHIP_LOW) return;
+    const keep = ET.reservedSet(G);          // 合成後索引變了，重算
+    const order = [];
+    for (let i = 0; i < N; i++) { const it = G.board[i]; if (it && !keep.has(i) && !ET.isGear(it.s)) order.push([VAL[it.s][it.t], i]); }     // 裝備不自動賣
+    order.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+    let n = ET.count(G), k = 0;
+    while (n > ET.SHIP_LOW && k < order.length) { ET.sell(G, order[k++][1]); n--; }
+  }
+
+  // ---------- 時間推進 ----------
+  ET.tick = function (G, dt) {
+    if (!(dt > 0)) return;
+    G.age += dt;
+    const sp = speed(G), farmer = G.up.farmer > 0;
+    for (let i = 0; i < G.plots.length; i++) {
+      const pl = G.plots[i];
+      if (!pl.crop) continue;
+      const T = cropTime(pl);
+      pl.p += dt * sp;
+      while (pl.p >= T) {
+        if (farmer && space(G) >= 0) harvestInternal(G, i);
+        else { pl.p = T; break; }
+      }
+    }
+    if (G.up.bot > 0) {
+      G.botT += dt;
+      const iv = botInterval(G.up.bot);
+      if (G.botT >= iv) G.botT = botStep(G) ? 0 : iv;
+    }
+    ET.shopTick(G, dt);
+    if (G.adv) ET.advTick(G, dt);
+    if (G.up.shipper > 0) shipStep(G);
+    checkUnlocks(G);
+  };
+
+  // 離線補算：用 1 秒一格跑同一個 tick，所以結果和線上一致
+  ET.offline = function (G, sec) {
+    const cap = ET.offlineCapHours(G) * 3600;
+    const used = Math.min(sec, cap);
+    if (!(used >= 1)) return null;
+    const before = { merges: G.stats.merges, earned: G.stats.earned, sold: G.stats.sold, h: Object.assign({}, G.stats.harvested),
+      shop: { sales: G.shop.sales, lost: G.shop.lost, stolen: G.shop.stolen, revenue: G.shop.revenue },
+      adv: G.adv ? { stages: G.adv.stats.stages, defeats: G.adv.stats.defeats, coins: G.adv.stats.coins, drops: G.adv.stats.drops, lv: G.adv.heroes.reduce((m, h) => m + h.lvl, 0) } : null };
+    const steps = Math.floor(used);
+    for (let i = 0; i < steps; i++) ET.tick(G, 1);
+    G.ev.length = 0;
+    const harvested = {};
+    for (const k in G.stats.harvested) {
+      const d = G.stats.harvested[k] - (before.h[k] || 0);
+      if (d > 0) harvested[k] = d;
+    }
+    return { sec: steps, rawSec: sec, capped: sec > cap, harvested, merges: G.stats.merges - before.merges, earned: G.stats.earned - before.earned, sold: G.stats.sold - before.sold,
+      advStages: G.adv && before.adv ? G.adv.stats.stages - before.adv.stages : 0, advDefeats: G.adv && before.adv ? G.adv.stats.defeats - before.adv.defeats : 0,
+      advCoins: G.adv && before.adv ? G.adv.stats.coins - before.adv.coins : 0, advDrops: G.adv && before.adv ? G.adv.stats.drops - before.adv.drops : 0,
+      advLevels: G.adv && before.adv ? G.adv.heroes.reduce((m, h) => m + h.lvl, 0) - before.adv.lv : 0,
+      shopSales: G.shop.sales - before.shop.sales, shopRevenue: G.shop.revenue - before.shop.revenue, shopLost: G.shop.lost - before.shop.lost, shopStolen: G.shop.stolen - before.shop.stolen };
+  };
+  // 從存檔時間算出離線秒數；系統時間倒退 → 0
+  ET.offlineSeconds = function (G, now) {
+    const s = (now - G.savedAt) / 1000;
+    return s > 0 && isFinite(s) ? s : 0;
+  };
+
+  // ---------- 升級 / 擴建 ----------
+  ET.upgradeCost = (G, id) => { const u = ET.UPGRADE_BY_ID[id]; return G.up[id] >= u.max ? Infinity : u.cost(G.up[id]); };
+  ET.buy = function (G, id) {
+    const u = ET.UPGRADE_BY_ID[id];
+    if (!u) return { ok: false, why: 'unknown' };
+    if (G.up[id] >= u.max) return { ok: false, why: 'max' };
+    const c = u.cost(G.up[id]);
+    if (G.coins < c) return { ok: false, why: 'coins' };
+    G.coins -= c; G.up[id]++;
+    if (id === 'shelf') ET.shopSync(G);
+    ev(G, { t: 'buy', id });
+    return { ok: true, cost: c };
+  };
+  ET.expandCost = G => G.expand >= ET.EXPAND.length ? Infinity : ET.EXPAND[G.expand].cost;
+  ET.buyExpand = function (G) {
+    if (G.expand >= ET.EXPAND.length) return { ok: false, why: 'max' };
+    const E = ET.EXPAND[G.expand];
+    if (G.coins < E.cost) return { ok: false, why: 'coins' };
+    G.coins -= E.cost; G.expand++;
+    while (G.plots.length < E.n) G.plots.push({ crop: null, p: 0 });
+    ev(G, { t: 'expand' });
+    return { ok: true };
+  };
+  // 有沒有買得起的東西（給紅點用）
+  ET.affordable = function (G) {
+    for (const u of ET.UPGRADES) if ((u.group !== 'shop' || G.unlocked.shop) && G.up[u.id] < u.max && G.coins >= u.cost(G.up[u.id])) return true;
+    return false;
+  };
+  // 升級頁可見規則：已買過、或錢夠到成本的 30%、或曾經看過
+  ET.upgradeVisible = function (G, id) {
+    const u = ET.UPGRADE_BY_ID[id];
+    if (u.group === 'shop' && !G.unlocked.shop) return false;
+    if (G.up[id] > 0 || G.seen[id]) return true;
+    if (G.coins >= u.cost(0) * 0.3) { G.seen[id] = 1; return true; }
+    return false;
+  };
+
+  // ---------- 提示（新手引導的最小版） ----------
+  ET.hint = function (G) {
+    if (!G.plots.some(p => p.crop)) return '點空地種下 🌾（手指滑過去可以連續種）';
+    const items = ET.count(G), ripe = G.plots.some(isRipe);
+    if (items === 0 && G.stats.sold === 0 && G.stats.merges === 0) return ripe ? '冒光的作物熟了，點它收成！' : '點正在長的作物可以加速成長';
+    if (!G.unlocked.merge) return '收成的東西會放進合成盤，湊到兩個一樣的就能合成';
+    if (G.stats.merges === 0) return '去 ⚗️ 合成：把兩個一樣的拖在一起';
+    if (G.unlocked.shop && G.shop.sales === 0) {
+      return G.shop.shelves.some(x => x.item) ? '客人會自己來買。點客人可以立刻結帳，還有小費' : '🏪 開張了！去商店點貨架，把東西上架給客人買（比賣出區貴）';
+    }
+    if (G.stats.sold === 0 && G.shop.sales === 0) return '把東西拖到下面的 💰 賣出區換錢';
+    if (G.unlocked.shop) { const dm = ET.demand(G); if (dm.length) return ET.demandHint(G, dm[0]); }
+    if (G.unlocked.quest && G.adv && G.adv.heroes.length && G.adv.heroes.every(h => !h.gear.weapon) && !G.board.some(it => it && it.s === 'blade')) return '⚔️ 冒險開放了！去冒險頁點 🔨 鍛造，打造一把武器給英雄';
+    if (G.up.farmer === 0) return '點右上 ⬆️ 升級：買 🚜 農夫就能自動收成';
+    return '';
+  };
+
+  // ---------- 存檔 ----------
+  ET.save = function (G, now) {
+    G.savedAt = now;
+    const o = Object.assign({}, G); delete o.ev;
+    o.shop = Object.assign({}, G.shop, { custs: [] });      // 客人是暫時的，不存
+    o.adv = G.adv ? Object.assign({}, G.adv, { battle: null, acc: 0 }) : null;     // 戰鬥從頭開始，不存進行中的那場
+    return JSON.stringify(o);
+  };
+  const num = (x, d, lo) => (typeof x === 'number' && isFinite(x) && x >= (lo == null ? 0 : lo)) ? x : d;
+  ET.load = function (str) {
+    let o;
+    try { o = JSON.parse(str); } catch (e) { return null; }
+    if (!o || typeof o !== 'object' || o.v !== ET.VERSION) return null;
+    const G = ET.newState(0);
+    G.age = num(o.age, 0); G.coins = num(o.coins, 0); G.botT = num(o.botT, 0); G.savedAt = num(o.savedAt, 0);
+    G.selected = ET.CROPS[o.selected] ? o.selected : 'wheat';
+    for (const u of ET.UPGRADES) G.up[u.id] = Math.min(u.max, Math.floor(num(o.up && o.up[u.id], 0)));
+    G.expand = Math.min(ET.EXPAND.length, Math.floor(num(o.expand, 0)));
+    const nPlots = G.expand > 0 ? ET.EXPAND[G.expand - 1].n : ET.START_PLOTS;
+    G.plots = [];
+    for (let i = 0; i < nPlots; i++) {
+      const p = Array.isArray(o.plots) ? o.plots[i] : null;
+      G.plots.push(p && ET.CROPS[p.crop] ? { crop: p.crop, p: num(p.p, 0) } : { crop: null, p: 0 });
+    }
+    let maxId = 0;
+    G.board = new Array(N).fill(null);
+    if (Array.isArray(o.board)) {
+      for (let i = 0; i < N; i++) {
+        const it = o.board[i];
+        if (it && ET.SERIES[it.s] && Number.isInteger(it.t) && it.t >= 1 && it.t <= MAXT) {
+          const id = Number.isInteger(it.id) && it.id > 0 ? it.id : ++maxId;
+          G.board[i] = { id, s: it.s, t: it.t };
+          maxId = Math.max(maxId, id);
+        }
+      }
+    }
+    G.nextId = Math.max(maxId + 1, num(o.nextId, 1, 1));
+    G.unlocked.merge = !!(o.unlocked && o.unlocked.merge);
+    G.unlocked.shop = !!(o.unlocked && o.unlocked.shop);
+    G.rs = (Math.floor(num(o.rs, G.rs, 1)) >>> 0) || G.rs;
+    G.shop = ET.sanitizeShop(o.shop, ET.shelfCount(G), G);
+    G.unlocked.quest = !!(o.unlocked && o.unlocked.quest);
+    G.adv = G.unlocked.quest || o.adv ? ET.sanitizeAdv(o.adv, G) : null;
+    if (G.adv && !G.unlocked.quest && G.adv.heroes.length) G.unlocked.quest = true;
+    if (G.unlocked.quest && !G.adv) G.adv = ET.newAdv();
+    if (G.adv && !G.adv.heroes.length && G.unlocked.quest) { const A = G.adv; A.heroes.push({ id: A.nextId++, role: 'sword', lvl: 1, xp: 0, hp: 0, gear: { weapon: null, armor: null, trinket: null } }); A.heroes[0].hp = ET.heroStats(G, A.heroes[0]).hp; }
+    for (const k of ['seen', 'dex', 'hints']) if (o[k] && typeof o[k] === 'object') G[k] = Object.assign({}, o[k]);
+    if (o.stats && typeof o.stats === 'object') {
+      G.stats.merges = num(o.stats.merges, 0); G.stats.sold = num(o.stats.sold, 0);
+      G.stats.earned = num(o.stats.earned, 0); G.stats.taps = num(o.stats.taps, 0);
+      if (o.stats.harvested && typeof o.stats.harvested === 'object') {
+        for (const k in o.stats.harvested) if (ET.CROPS[k]) G.stats.harvested[k] = num(o.stats.harvested[k], 0);
+      }
+    }
+    return G;
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+// S2 商店：貨架、客人、人氣、店員。不碰 DOM，亂數全走 G.rs（可存檔、離線補算與線上一致）。
+(function (root) {
+  'use strict';
+  const ET = root.ET, S = ET.SHOP, MAXT = ET.MAXT, N = ET.COLS * ET.ROWS;
+  const ev = (G, o) => { if (G.ev.length < 300) G.ev.push(o); };
+  const val = (s, t) => ET.value(s, t);
+  const FACES = ['🧑', '👩', '👴', '👧', '👦', '👵'];
+  const WANT_W = { 1: 1, 2: 4, 3: 3, 4: 1.5 };      // 客人想要幾階：偏好 2～3 階
+
+  // mulberry32：狀態存在 G.rs
+  ET.rand = function (G) {
+    G.rs = (G.rs + 0x6D2B79F5) >>> 0;
+    let t = G.rs;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  ET.newShop = n => ({
+    shelves: Array.from({ length: n || S.baseShelves }, () => ({ item: null, tpl: null })),
+    pop: 20, sales: 0, revenue: 0, lost: 0, stolen: 0, spawnT: 0, nextIv: S.baseInterval, restockT: 0,
+    custs: [], cid: 1
+  });
+  ET.shelfCount = G => S.baseShelves + G.up.shelf;
+  ET.priceMult = G => S.priceBase + 0.1 * G.up.sign;
+  ET.rateMult = G => (0.6 + 1.4 * G.shop.pop / 100) * (1 + 0.2 * G.up.deco);
+  ET.queueMax = G => S.queueBase + G.up.deco;
+  ET.stars = G => Math.min(5, Math.floor(G.shop.pop / 20));
+  ET.price = (G, s, t) => Math.round(val(s, t) * ET.priceMult(G));
+  ET.shopSync = function (G) {
+    const sh = G.shop.shelves, n = ET.shelfCount(G);
+    while (sh.length < n) sh.push({ item: null, tpl: null });
+  };
+
+  // ---------- 客人 ----------
+  function pickWant(G, minTier) {
+    const pool = [];
+    for (const k of Object.keys(G.dex).sort()) {
+      const [s, ts] = k.split(':'), t = +ts;
+      if (ET.SERIES[s] && !ET.SERIES[s].gear && t >= minTier && t < MAXT) pool.push([{ s, t }, WANT_W[t] || 1]);
+    }
+    if (!pool.length) return null;
+    let sum = 0; for (const p of pool) sum += p[1];
+    let r = ET.rand(G) * sum;
+    for (const p of pool) { r -= p[1]; if (r <= 0) return p[0]; }
+    return pool[pool.length - 1][0];
+  }
+  function spawnCust(G) {
+    const sp = G.shop;
+    if (sp.custs.length >= ET.queueMax(G)) return;
+    const r = ET.rand(G);
+    let kind = 'normal', want = null, qty = 1;
+    if (sp.pop >= 40 && sp.sales >= 10 && r < 0.07) kind = 'thief';
+    else if (sp.pop >= 30 && r < 0.15) { kind = 'noble'; want = pickWant(G, 2); qty = 3; if (!want) kind = 'normal'; }
+    if (kind === 'normal') { qty = 1; want = pickWant(G, 1); if (!want) return; }
+    const c = {
+      id: sp.cid++, kind, qty, wait: 0, okT: 0, pat: S.patience[kind],
+      face: kind === 'thief' ? '🦹' : kind === 'noble' ? '🤴' : FACES[Math.floor(ET.rand(G) * FACES.length)],
+      s: want ? want.s : null, t: want ? want.t : 0
+    };
+    sp.custs.push(c);
+    ev(G, { t: 'customer', id: c.id });
+  }
+  // 客人要的東西：貨架上同系列、階數 >= 要求的；挑最便宜的 qty 個。湊不齊回傳 null
+  function qualifying(G, c) {
+    const sh = G.shop.shelves, out = [];
+    for (let i = 0; i < sh.length; i++) { const it = sh[i].item; if (it && it.s === c.s && it.t >= c.t) out.push(i); }
+    if (out.length < c.qty) return null;
+    out.sort((a, b) => val(sh[a].item.s, sh[a].item.t) - val(sh[b].item.s, sh[b].item.t) || a - b);
+    return out.slice(0, c.qty);
+  }
+  ET.canServe = (G, c) => c.kind !== 'thief' && !!qualifying(G, c);
+
+  function sale(G, c, idxs, tapped) {
+    const sp = G.shop, sh = sp.shelves;
+    let total = 0;
+    for (const i of idxs) { const it = sh[i].item; total += ET.price(G, it.s, it.t); sh[i].item = null; }
+    if (c.kind === 'noble') total = Math.round(total * 1.3);
+    const tip = tapped ? Math.max(1, Math.round(total * S.tipRate)) : 0;
+    total += tip;
+    G.coins += total; G.stats.earned += total;
+    sp.sales += idxs.length; sp.revenue += total;
+    sp.pop = Math.min(100, sp.pop + (c.kind === 'noble' ? 3 : 2) + (tapped ? 1 : 0));
+    c.done = true;
+    ev(G, { t: 'sale', total, tip, cid: c.id, slot: idxs[0] });
+  }
+  function steal(G, c) {
+    const sp = G.shop, sh = sp.shelves;
+    let best = -1, bv = -1;
+    for (let i = 0; i < sh.length; i++) { const it = sh[i].item; if (it && val(it.s, it.t) > bv) { bv = val(it.s, it.t); best = i; } }
+    c.done = true;
+    if (best < 0) return;
+    const it = sh[best].item; sh[best].item = null;
+    sp.stolen++; sp.pop = Math.max(0, sp.pop - 3);
+    ev(G, { t: 'stolen', s: it.s, tier: it.t, cid: c.id });
+  }
+  // 點客人：有貨 → 立刻結帳 + 小費；小偷 → 趕走
+  ET.serveNow = function (G, id) {
+    const sp = G.shop, c = sp.custs.find(x => x.id === id && !x.done);
+    if (!c) return { ok: false, why: 'gone' };
+    if (c.kind === 'thief') { c.done = true; sp.pop = Math.min(100, sp.pop + 1); ev(G, { t: 'chase', cid: c.id }); sp.custs = sp.custs.filter(x => !x.done); return { ok: true, act: 'chase' }; }
+    const idxs = qualifying(G, c);
+    if (!idxs) return { ok: false, why: 'nostock' };
+    sale(G, c, idxs, true);
+    sp.custs = sp.custs.filter(x => !x.done);
+    return { ok: true, act: 'sale' };
+  };
+
+  // ---------- 貨架 ----------
+  // 把合成盤上「剛好是 s/t」的一個放上第 i 格；原本的貨品換回那個空位（所以盤面滿了也能換）
+  ET.stock = function (G, i, s, t) {
+    const sh = G.shop.shelves[i];
+    if (!sh) return { ok: false, why: 'slot' };
+    let bi = -1;
+    for (let k = 0; k < N; k++) { const it = G.board[k]; if (it && it.s === s && it.t === t) { bi = k; break; } }
+    if (bi < 0) return { ok: false, why: 'none' };
+    const picked = G.board[bi];
+    G.board[bi] = sh.item || null;
+    sh.item = picked; sh.tpl = { s, t }; G.ver++;
+    return { ok: true };
+  };
+  ET.takeBack = function (G, i) {
+    const sh = G.shop.shelves[i];
+    if (!sh || !sh.item) return { ok: false, why: 'empty' };
+    const bi = G.board.indexOf(null);
+    if (bi < 0) return { ok: false, why: 'full' };
+    G.board[bi] = sh.item; sh.item = null; G.ver++;
+    return { ok: true };
+  };
+  ET.takeAll = function (G) {
+    let n = 0;
+    for (let i = 0; i < G.shop.shelves.length; i++) if (ET.takeBack(G, i).ok) n++;
+    return n;
+  };
+  ET.clearTpl = function (G, i) { const sh = G.shop.shelves[i]; if (sh && !sh.item) { sh.tpl = null; return true; } return false; };
+  // 合成盤上能補給 tpl（同系列、階數 >= tpl.t）的最便宜一個
+  function findBoard(G, tpl) {
+    let best = -1, bv = Infinity;
+    for (let k = 0; k < N; k++) {
+      const it = G.board[k];
+      if (it && it.s === tpl.s && it.t >= tpl.t && val(it.s, it.t) < bv) { bv = val(it.s, it.t); best = k; }
+    }
+    return best;
+  }
+  // 沒設定商品的空貨架：建議盤上數量最多的 2 階以上品項（沒有就 1 階）
+  function suggest(G) {
+    for (const minT of [2, 1]) {
+      const c = {};
+      for (const it of G.board) if (it && !ET.isGear(it.s) && it.t >= minT && it.t < MAXT) { const k = it.s + ':' + it.t; c[k] = (c[k] || 0) + 1; }
+      let bk = null, bc = 0;
+      for (const k of Object.keys(c).sort()) if (c[k] > bc) { bc = c[k]; bk = k; }
+      if (bk) { const [s, t] = bk.split(':'); return { s, t: +t }; }
+    }
+    return null;
+  }
+  // 把合成盤上某個系列「1 階到 t-1 階」的成對品項一路合上去（最高合出 t 階）。回傳合成次數。
+  // 只動這個系列，不碰其他系列的東西
+  // keep（可選）：被客人佔著的盤面索引。成對的兩個「都」被佔著就不合（合了件數會變少）
+  ET.mergeUpTo = function (G, s, t, keep) {
+    let n = 0;
+    for (let k = 1; k < t && k < MAXT; k++) {
+      let first = -1;
+      for (let i = 0; i < N; i++) {
+        const it = G.board[i];
+        if (!it || it.s !== s || it.t !== k) continue;
+        if (first < 0) first = i;
+        else {
+          if (keep && keep.has(first) && keep.has(i)) continue;
+          ET.moveItem(G, i, first); n++;
+          if (keep && (keep.has(first) || keep.has(i))) { keep.delete(i); keep.add(first); }
+          first = -1;
+        }
+      }
+    }
+    return n;
+  };
+  // 保留：「客人在等的貨」+「空貨架設定的商品」，一對一分配給合成盤上現成的貨（難的、高階的先分）。
+  // 回傳 reserved（被佔著的盤面索引）與 unfilled（盤上沒有現成貨可以滿足的需求）。
+  // 自動出貨、機器人、備貨都不能賣掉 / 合掉 reserved 裡的東西，不然客人要的貨會被自動化吃掉。
+  ET.reservedInfo = function (G) {
+    const needs = unmetWants(G).map(w => ({ s: w.s, t: w.t }));
+    for (const x of G.shop.shelves) if (!x.item && x.tpl) needs.push({ s: x.tpl.s, t: x.tpl.t });
+    needs.sort((a, b) => b.t - a.t);
+    const reserved = new Set(), unfilled = [];
+    for (const nd of needs) {
+      if (reserved.size >= S.reserveMax) { unfilled.push(nd); continue; }       // 上限：再多的需求不保護
+      let best = -1, bv = Infinity;
+      for (let k = 0; k < N; k++) {
+        const it = G.board[k];
+        if (!it || reserved.has(k) || it.s !== nd.s || it.t < nd.t) continue;
+        const v = val(it.s, it.t);
+        if (v < bv) { bv = v; best = k; }
+      }
+      if (best >= 0) reserved.add(best); else unfilled.push(nd);
+    }
+    return { reserved, unfilled };
+  };
+  ET.reservedSet = G => (G.unlocked.shop ? ET.reservedInfo(G).reserved : new Set());
+  // 取得一件能滿足 tpl 的貨：盤上有現成的就用；沒有就先把同系列的低階貨合成上去再找。回傳盤面索引或 -1
+  function supply(G, tpl) {
+    let bi = findBoard(G, tpl);
+    if (bi >= 0) return bi;
+    if (ET.mergeUpTo(G, tpl.s, tpl.t, ET.reservedSet(G)) > 0) bi = findBoard(G, tpl);
+    return bi;
+  }
+  // 店裡客人現在還缺什麼（扣掉貨架上已經夠格的）。貴族要 qty 件就列 qty 筆
+  function unmetWants(G) {
+    const sh = G.shop.shelves, out = [], used = new Set();
+    for (const c of G.shop.custs) {
+      if (c.kind === 'thief' || c.done) continue;
+      const have = [];
+      for (let i = 0; i < sh.length; i++) if (!used.has(i) && sh[i].item && sh[i].item.s === c.s && sh[i].item.t >= c.t) have.push(i);
+      const take = have.slice(0, c.qty);
+      for (const i of take) used.add(i);
+      for (let k = take.length; k < c.qty; k++) out.push({ s: c.s, t: c.t });
+    }
+    return out;
+  }
+  // 補貨：把每個空貨架補滿。
+  //  1. 照貨架的商品設定補；盤上沒有現成的，先把同系列低階貨合成出來
+  //  2. 設定的商品做不出來 → 改做「排隊客人現在想要、而且做得出來」的東西（貨架設定跟著改）
+  //  3. 沒設定、也沒人在等 → 建議盤上最多的 2 階以上品項
+  // 回傳補了幾格
+  ET.restock = function (G) {
+    let n = 0;
+    const sh = G.shop.shelves, wants = unmetWants(G);
+    for (let i = 0; i < sh.length; i++) {
+      if (sh[i].item) continue;
+      let tpl = sh[i].tpl, bi = tpl ? supply(G, tpl) : -1;
+      if (bi < 0) {
+        for (let w = 0; w < wants.length; w++) {
+          const b2 = supply(G, wants[w]);
+          if (b2 >= 0) { tpl = { s: wants[w].s, t: wants[w].t }; bi = b2; break; }
+        }
+      }
+      if (bi < 0 && !sh[i].tpl && !wants.length) { const sg = suggest(G); if (sg) { tpl = sg; bi = findBoard(G, sg); } }
+      if (bi < 0) continue;
+      const it = G.board[bi]; G.board[bi] = null;
+      sh[i].item = it;
+      sh[i].tpl = { s: tpl.s, t: tpl.t };
+      const wi = wants.findIndex(w => w.s === it.s && w.t <= it.t);   // 這件貨滿足了一筆需求，就不要再為它補第二件
+      if (wi >= 0) wants.splice(wi, 1);
+      n++;
+    }
+    if (n) G.ver++;
+    return n;
+  };
+
+  // ---------- 客人需求（給花園 / 合成的建議用） ----------
+  ET.cropOf = series => Object.keys(ET.CROPS).find(c => ET.CROPS[c].series === series) || null;
+  // 店裡客人現在缺什麼，依系列彙整：
+  //   t = 需要的最高階、n = 要幾件、need = 折合 1 階的個數（2 階=2、3 階=4…）、have = 合成盤上這個系列折合 1 階的個數、short = 還差多少
+  ET.demand = function (G) {
+    const by = {};
+    for (const w of unmetWants(G)) {
+      const d = by[w.s] || (by[w.s] = { s: w.s, t: 0, n: 0, need: 0, tiers: {} });
+      d.t = Math.max(d.t, w.t); d.n++; d.need += Math.pow(2, w.t - 1); d.tiers[w.t] = (d.tiers[w.t] || 0) + 1;
+    }
+    const out = [];
+    for (const k of Object.keys(by).sort()) {
+      const d = by[k]; let have = 0;
+      for (const it of G.board) if (it && it.s === d.s) have += Math.pow(2, it.t - 1);
+      d.have = have; d.short = Math.max(0, d.need - have);
+      out.push(d);
+    }
+    out.sort((a, b) => b.short - a.short || b.need - a.need);
+    return out;
+  };
+  // 為客人備貨：把客人要的系列先合成上去，再補貨上架。回傳 { merges, stocked, demand }（demand 是做完之後還缺的）
+  ET.prepareDemand = function (G) {
+    let merges = 0;
+    for (const d of ET.demand(G)) merges += ET.mergeUpTo(G, d.s, d.t, ET.reservedSet(G));
+    const stocked = ET.restock(G);
+    return { merges, stocked, demand: ET.demand(G) };
+  };
+  // 「🍔、🥪×2」：這個系列客人要哪幾階、各幾件（高階在前）
+  ET.wantText = d => Object.keys(d.tiers).map(Number).sort((a, b) => b - a).map(t => ET.SERIES[d.s].tiers[t - 1] + (d.tiers[t] > 1 ? '×' + d.tiers[t] : '')).join('、');
+  ET.demandHint = function (G, d) {
+    const S = ET.SERIES[d.s], crop = ET.cropOf(d.s), ce = crop ? ET.CROPS[crop].emoji : S.tiers[0];
+    const want = ET.wantText(d);
+    return d.short > 0 ? `客人在等 ${want}：${ce} 還差 ${d.short} 個，去花園多種 ${ce}` : `客人在等 ${want}：材料夠了！去 ⚗️ 按 🎯 為客人備貨`;
+  };
+
+  // ---------- 時間推進（由 ET.tick 呼叫） ----------
+  ET.shopTick = function (G, dt) {
+    if (!G.unlocked.shop) return;
+    const sp = G.shop;
+    ET.shopSync(G);
+    sp.spawnT += dt;
+    if (sp.spawnT >= sp.nextIv) {
+      // 貨架上完全沒東西 = 店面沒在營業，客人不會進來（也就不會因為沒貨流失、拉低人氣）。
+      // 計時停在「到了」，一上架下一個 tick 就會有客人
+      if (!sp.shelves.some(x => x.item)) sp.spawnT = sp.nextIv;
+      else {
+        sp.spawnT = 0;
+        spawnCust(G);
+        sp.nextIv = (S.baseInterval / ET.rateMult(G)) * (0.7 + 0.6 * ET.rand(G));
+      }
+    }
+    if (G.up.clerk > 0) {
+      sp.restockT += dt;
+      if (sp.restockT >= S.restockEvery) { sp.restockT = 0; ET.restock(G); }
+    }
+    for (const c of sp.custs) {
+      c.wait += dt;
+      if (c.kind === 'thief') {
+        if (G.up.clerk > 0) { c.done = true; ev(G, { t: 'chase', cid: c.id, auto: true }); }
+        else if (c.wait >= c.pat) steal(G, c);
+        continue;
+      }
+      const idxs = qualifying(G, c);
+      if (idxs) { c.okT += dt; if (c.okT >= S.serveDelay) sale(G, c, idxs, false); }
+      else {
+        c.okT = 0;
+        if (c.wait >= c.pat) { c.done = true; sp.lost++; sp.pop = Math.max(0, sp.pop - 4); ev(G, { t: 'lost', cid: c.id }); }
+      }
+    }
+    if (sp.custs.some(c => c.done)) sp.custs = sp.custs.filter(c => !c.done);
+  };
+
+  // ---------- 存檔 ----------
+  const num = (x, d, lo, hi) => (typeof x === 'number' && isFinite(x) && x >= (lo == null ? 0 : lo) && (hi == null || x <= hi)) ? x : d;
+  const okItem = it => it && ET.SERIES[it.s] && Number.isInteger(it.t) && it.t >= 1 && it.t <= MAXT;
+  ET.sanitizeShop = function (o, nShelves, G) {
+    const sp = ET.newShop(nShelves);
+    if (!o || typeof o !== 'object') return sp;
+    sp.pop = num(o.pop, 20, 0, 100);
+    for (const k of ['sales', 'revenue', 'lost', 'stolen']) sp[k] = num(o[k], 0);
+    sp.spawnT = num(o.spawnT, 0); sp.nextIv = num(o.nextIv, S.baseInterval, 1);
+    sp.restockT = num(o.restockT, 0);
+    if (Array.isArray(o.shelves)) {
+      for (let i = 0; i < nShelves && i < o.shelves.length; i++) {
+        const x = o.shelves[i]; if (!x || typeof x !== 'object') continue;
+        if (okItem(x.item)) { sp.shelves[i].item = { id: Number.isInteger(x.item.id) && x.item.id > 0 ? x.item.id : G.nextId++, s: x.item.s, t: x.item.t }; G.nextId = Math.max(G.nextId, sp.shelves[i].item.id + 1); }
+        if (okItem(x.tpl)) sp.shelves[i].tpl = { s: x.tpl.s, t: x.tpl.t };
+      }
+    }
+    return sp;
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+(function (r) { var ET = r.ET; ET.advCheck = function () {}; ET.advTick = function () {}; ET.isGear = function () { return false; }; ET.sanitizeAdv = function () { return null; }; ET.newAdv = function () { return null; }; })(typeof globalThis !== 'undefined' ? globalThis : this);
+// UI：只負責畫面與輸入，所有規則都在 core.js。
+(function () {
+  'use strict';
+  const ET = window.ET;
+  const $ = s => document.querySelector(s);
+  const KEY = 'emojitown.v1', PREF = 'emojitown.pref';
+  const N = ET.COLS * ET.ROWS;
+
+  let G = null, tab = 'garden', pref = { mute: 0 };
+  let selId = null;            // 合成盤選取中的物品 id
+  let drag = null, pg = null;  // 拖曳 / 花園滑動手勢
+  let modalOpen = false;
+  let DM = [];                 // 客人現在缺的東西（每個循環更新一次，花園 / 合成 / 商店都用它）
+
+  // ---------- 儲存 ----------
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+  function save() { lsSet(KEY, ET.save(G, Date.now())); }
+  function loadPref() { try { const o = JSON.parse(lsGet(PREF)); if (o && typeof o === 'object') pref = Object.assign(pref, o); } catch (e) { } }
+  function savePref() { lsSet(PREF, JSON.stringify(pref)); }
+
+  // ---------- 音效 ----------
+  let ac = null;
+  function beep(f, d, type, g, f2) {
+    if (pref.mute) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      const t = ac.currentTime, o = ac.createOscillator(), v = ac.createGain();
+      o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+      if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+      v.gain.setValueAtTime(g || .06, t); v.gain.exponentialRampToValueAtTime(.001, t + d);
+      o.connect(v); v.connect(ac.destination); o.start(t); o.stop(t + d + .02);
+    } catch (e) { }
+  }
+  const SND = {
+    harvest: () => beep(520, .1, 'triangle', .05, 780),
+    plant: () => beep(300, .07, 'sine', .04),
+    boost: () => beep(660, .04, 'square', .02),
+    merge: t => beep(400 + t * 90, .18, 'triangle', .07, 700 + t * 120),
+    sell: () => beep(880, .1, 'sine', .05, 1320),
+    buy: () => beep(500, .22, 'triangle', .06, 1000),
+    unlock: () => beep(600, .35, 'triangle', .07, 1200)
+  };
+  function vib(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { } }
+
+  // ---------- 小工具 ----------
+  const fmt = ET.fmt;
+  const SER = ET.SERIES;
+  const emoji = it => SER[it.s].tiers[it.t - 1];
+  function fmtDur(s) {
+    s = Math.round(s);
+    const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+    if (h > 0) return `${h} 小時${m ? ' ' + m + ' 分' : ''}`;
+    if (m > 0) return `${m} 分${s % 60 >= 10 ? ' ' + (s % 60) + ' 秒' : ''}`;
+    return `${s} 秒`;
+  }
+  let toastT = 0, toastEl = null;
+  function toast(t) {
+    if (!toastEl) { toastEl = document.createElement('div'); toastEl.id = 'toast'; document.body.appendChild(toastEl); }
+    toastEl.textContent = t; toastEl.classList.add('on');
+    clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 1800);
+  }
+  function floatAt(el, text, dy) {
+    if (!el) return;
+    const r = el.getBoundingClientRect(), f = document.createElement('div');
+    f.className = 'float'; f.textContent = text;
+    f.style.left = (r.left + r.width / 2) + 'px'; f.style.top = (r.top + r.height / 2 + (dy || 0)) + 'px';
+    $('#fx').appendChild(f); setTimeout(() => f.remove(), 950);
+  }
+
+  // ---------- Modal ----------
+  function showModal(html, handler) {
+    cancelDrag();
+    const m = $('#modal'); m.innerHTML = `<div class="card">${html}</div>`; m.classList.add('on'); modalOpen = true;
+    m.onclick = e => {
+      if (e.target === m) { closeModal(); return; }
+      const t = e.target.closest('[data-a]');
+      if (t && !t.disabled && handler) handler(t.dataset.a, t);
+    };
+  }
+  function closeModal() { const m = $('#modal'); m.classList.remove('on'); m.innerHTML = ''; m.onclick = null; modalOpen = false; }
+
+  // ---------- 分頁 ----------
+  let tabKey = '';
+  function buildTabs() {
+    const items = [
+      { id: 'garden', emoji: '🌱', name: '花園' },
+      { id: 'merge', emoji: '⚗️', name: '合成', locked: !G.unlocked.merge, need: '湊到兩個一樣的東西就解鎖' },
+      { id: 'shop', emoji: '🏪', name: '商店', locked: !G.unlocked.shop, need: '合成出第一個 2 階物品（例如 🍞）就開張' }
+    ].concat(ET.LOCKED_TABS.map(t => Object.assign({ locked: true }, t)));
+    $('#tabs').innerHTML = items.map(t =>
+      `<button class="tab${t.locked ? ' lock' : ''}${tab === t.id ? ' on' : ''}" data-t="${t.id}"><b>${t.emoji}</b><small>${t.name}</small>${t.id === 'garden' || t.id === 'merge' || t.id === 'shop' ? '<i class="dot" hidden></i>' : ''}</button>`).join('');
+    $('#tabs').querySelectorAll('.tab').forEach((el, i) => {
+      el.onclick = () => {
+        const t = items[i];
+        if (t.locked) { toast('🔒 ' + t.name + '：' + t.need); return; }
+        setTab(t.id);
+      };
+    });
+  }
+  function showView(id) { for (const v of ['garden', 'merge', 'shop']) $('#v-' + v).hidden = v !== id; }
+  function setTab(id) {
+    cancelDrag();
+    tab = id; selId = null;
+    showView(id);
+    buildTabs(); boardKey = ''; laneIds = ''; shelfSig = ''; renderBoard(true); renderShop(); resize();
+  }
+  function hasPairUI() {
+    const c = {};
+    for (const it of G.board) { if (!it || it.t >= ET.MAXT) continue; const k = it.s + ':' + it.t; if ((c[k] = (c[k] || 0) + 1) >= 2) return true; }
+    return false;
+  }
+
+  // ---------- 花園 ----------
+  let plotEls = [], plotCache = [], seedKey = '';
+  function buildPlots() {
+    const n = G.plots.length, cols = n <= 12 ? 3 : n <= 20 ? 4 : 5;
+    const el = $('#plots');
+    el.style.setProperty('--cols', cols); el.style.setProperty('--rows', Math.ceil(n / cols));
+    el.innerHTML = G.plots.map((_, i) => `<button class="plot empty" data-i="${i}"><span class="pe"></span><span class="pb"><i></i></span></button>`).join('');
+    plotEls = Array.from(el.children); plotCache = []; resize();
+  }
+  function renderGarden() {
+    if (plotEls.length !== G.plots.length) buildPlots();
+    G.plots.forEach((pl, i) => {
+      const el = plotEls[i]; let key, st = 'empty', f = 0;
+      if (pl.crop) { f = Math.min(1, pl.p / ET.CROPS[pl.crop].time); st = f >= 1 ? 'ripe' : 'grow'; key = pl.crop + '|' + st + '|' + Math.floor(f * 25); } else key = 'e';
+      if (plotCache[i] === key) return;
+      plotCache[i] = key;
+      el.className = 'plot ' + st + (el.classList.contains('pop') ? ' pop' : '');
+      const pe = el.firstChild, bar = el.lastChild.firstChild;
+      if (!pl.crop) { pe.textContent = ''; bar.style.width = '0'; return; }
+      pe.textContent = f < 0.34 ? '🌱' : ET.CROPS[pl.crop].emoji;
+      pe.style.setProperty('--s', f < 0.34 ? .8 : st === 'ripe' ? 1 : (.55 + .45 * f).toFixed(2));
+      bar.style.width = (f * 100) + '%';
+    });
+    // 種子列
+    const dmBy = {};
+    for (const d of DM) dmBy[d.s] = d;
+    const sk = G.selected + '|' + Object.keys(ET.CROPS).map(c => ET.cropOpen(G, c) ? 1 : 0).join('') + '|' + DM.map(d => d.s + d.short).join() + '|' + G.up.fert;
+    if (sk !== seedKey) {
+      seedKey = sk;
+      $('#seeds').innerHTML = Object.keys(ET.CROPS).map(c => {
+        const C = ET.CROPS[c], open = ET.cropOpen(G, c), dd = dmBy[C.series];
+        return `<button class="seed${G.selected === c ? ' sel' : ''}${open ? '' : ' lock'}" data-c="${c}">${dd && open ? `<i class="need">客人要${dd.short > 0 ? ' +' + dd.short : ''}</i>` : ''}<b>${open ? C.emoji : '🔒'}</b><small>${open ? (G.up.fert > 0 ? C.time + ' → ' + ET.fmtSec(ET.cropSeconds(G, c)) : C.time) + ' 秒' : C.hint}</small></button>`;
+      }).join('');
+    }
+    const ex = ET.expandCost(G), be = $('#bExpand');
+    if (ex === Infinity) be.hidden = true;
+    else { be.hidden = false; be.textContent = `➕ 擴建田地  💰${fmt(ex)}`; be.classList.toggle('off', G.coins < ex); }
+    const ba = $('#bAll'), diff = G.plots.some(p => p.crop && p.crop !== G.selected) || G.plots.some(p => !p.crop);
+    ba.hidden = !diff; ba.textContent = `🔄 全部種 ${ET.CROPS[G.selected].emoji}`;
+    $('#boardInfo').textContent = `📦 合成盤 ${ET.count(G)}/${N}` + (ET.count(G) >= N ? '（滿了！作物收不進去）' : '');
+  }
+
+  // 花園手勢：點 = 種/收/加速；滑過去 = 連續種/收；長按 = 改種
+  function applyPlot(i, boost) {
+    const r = ET.tapPlot(G, i, { boost });
+    if (r.act === 'plant') { const el = plotEls[i]; el.classList.add('pop'); setTimeout(() => el.classList.remove('pop'), 320); plotCache[i] = null; }
+    flush(); renderGarden();
+  }
+  const plotsEl = $('#plots');
+  plotsEl.addEventListener('pointerdown', e => {
+    const el = e.target.closest('.plot'); if (!el) return;
+    const i = +el.dataset.i;
+    try { plotsEl.setPointerCapture(e.pointerId); } catch (_) { }   // 滑鼠移出範圍也要收得到事件
+    pg = { start: i, visited: new Set([i]), moved: false, lp: false };
+    pg.timer = setTimeout(() => {
+      if (!pg || pg.moved) return;
+      pg.lp = true;
+      const pl = G.plots[i];
+      if (pl.crop && pl.crop !== G.selected) { if (ET.replace(G, i, G.selected)) { plotCache[i] = null; flush(); renderGarden(); } }
+      else toast('長按可以改種：先在上面選另一種作物');
+    }, 500);
+  });
+  plotsEl.addEventListener('pointermove', e => {
+    if (!pg) return;
+    const t = document.elementFromPoint(e.clientX, e.clientY), el = t && t.closest && t.closest('.plot');
+    if (!el) return;
+    const i = +el.dataset.i;
+    if (pg.visited.has(i)) return;
+    if (!pg.moved) { pg.moved = true; clearTimeout(pg.timer); applyPlot(pg.start, false); }
+    pg.visited.add(i); applyPlot(i, false);
+  });
+  const endPlot = e => {
+    if (!pg) return;
+    clearTimeout(pg.timer);
+    if (e.type === 'pointerup' && !pg.moved && !pg.lp) applyPlot(pg.start, true);
+    pg = null;
+  };
+  addEventListener('pointerup', endPlot);        // 掛在 window：滑鼠在任何地方放開都收得到
+  addEventListener('pointercancel', endPlot);
+  $('#seeds').addEventListener('click', e => {
+    const b = e.target.closest('.seed'); if (!b) return;
+    const c = b.dataset.c;
+    if (!ET.select(G, c)) { toast('🔒 ' + ET.CROPS[c].hint); return; }
+    seedKey = ''; renderGarden();
+  });
+  $('#bExpand').addEventListener('click', () => {
+    const r = ET.buyExpand(G);
+    if (!r.ok) toast('💰 錢還不夠擴建');
+    flush(); renderGarden(); renderTop();
+  });
+  $('#bAll').addEventListener('click', () => {
+    if (ET.plantAll(G, G.selected) > 0) { plotCache = []; SND.plant(); }
+    flush(); renderGarden();
+  });
+
+  // ---------- 合成盤 ----------
+  let boardKey = '';
+  function boardSig() { return G.ver + '|' + selId + '|' + (drag && drag.started ? drag.i : '') + '|' + DM.map(d => d.s + d.short).join(); }
+  function renderBoard(force) {
+    if (tab !== 'merge') return;
+    const sig = boardSig();
+    if (!force && sig === boardKey) return;
+    if (drag && drag.started) return;
+    boardKey = sig;
+    const selIdx = selId == null ? -1 : G.board.findIndex(it => it && it.id === selId);
+    if (selIdx < 0) selId = null;
+    let h = '';
+    const dmSet = new Set(DM.map(d => d.s));
+    for (let i = 0; i < N; i++) {
+      const it = G.board[i];
+      const cls = ['cell'];
+      if (i === selIdx) cls.push('sel');
+      else if (selIdx >= 0 && it && ET.canMerge(G, selIdx, i)) cls.push('match');
+      else if (it && dmSet.has(it.s)) cls.push('want');
+      h += `<div class="${cls.join(' ')}" data-i="${i}">` + (it ? `<div class="item${it.t >= ET.MAXT ? ' max' : ''}" data-i="${i}">${emoji(it)}<span class="t">${it.t}</span></div>` : '') + '</div>';
+    }
+    $('#board').innerHTML = h;
+    const sel = selIdx >= 0 ? G.board[selIdx] : null;
+    $('#sellTxt').textContent = sel ? `💰 賣出 ${emoji(sel)}　+${fmt(ET.value(sel.s, sel.t))}` : '💰 把東西拖到這裡賣出';
+  }
+  const boardEl = $('#board'), sellEl = $('#sellzone');
+  function cellIndexAt(x, y) { const t = document.elementFromPoint(x, y), c = t && t.closest && t.closest('.cell'); return c && boardEl.contains(c) ? +c.dataset.i : -1; }
+  function overSell(x, y) { const t = document.elementFromPoint(x, y); return !!(t && t.closest && t.closest('#sellzone')); }
+  function doMove(a, b) {
+    const itA = G.board[a];
+    const r = ET.moveItem(G, a, b);
+    if (r.ok && r.kind === 'merge') { selId = null; vib(15); }
+    else if (r.ok) selId = null;
+    boardKey = ''; flush(); renderBoard(true); renderTop();
+    return r;
+  }
+  function doSell(i) {
+    selId = null; ET.sell(G, i); boardKey = ''; flush(); renderBoard(true); renderTop();
+  }
+  // 清掉拖曳狀態與殘影（切換分頁、開視窗、上一次沒正常結束時都要呼叫）
+  function cancelDrag() {
+    if (drag && drag.ghost) drag.ghost.remove();
+    drag = null;
+    document.querySelectorAll('.dragghost').forEach(g => g.remove());
+    sellEl.classList.remove('over');
+    boardKey = '';
+  }
+  boardEl.addEventListener('pointerdown', e => {
+    cancelDrag();
+    const cell = e.target.closest('.cell'); if (!cell) return;
+    try { boardEl.setPointerCapture(e.pointerId); } catch (_) { }   // 滑鼠拖出盤面也要收得到 move / up
+    const i = +cell.dataset.i, it = G.board[i];
+    if (!it) {
+      // 點空格：把選取的移過來
+      if (selId != null) { const si = G.board.findIndex(q => q && q.id === selId); if (si >= 0) doMove(si, i); }
+      return;
+    }
+    drag = { i, id: it.id, x: e.clientX, y: e.clientY, started: false, ghost: null };
+  });
+  addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (!drag.started) {
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) return;
+      drag.started = true;
+      const it = G.board[drag.i];
+      const g = document.createElement('div'); g.className = 'dragghost'; g.textContent = it ? emoji(it) : '';
+      document.body.appendChild(g); drag.ghost = g;
+      const c = boardEl.children[drag.i]; if (c) c.classList.add('dragging');
+    }
+    drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px';
+    sellEl.classList.toggle('over', overSell(e.clientX, e.clientY));
+  });
+  function endDrag(e) {
+    if (!drag) return;
+    const d = drag; drag = null;
+    sellEl.classList.remove('over');
+    if (d.ghost) d.ghost.remove();
+    const cur = G.board[d.i];
+    if (d.started) {
+      if (!cur || cur.id !== d.id) { boardKey = ''; renderBoard(true); return; }   // 拖的過程中盤面被自動化改了
+      if (e.type === 'pointerup') {
+        if (overSell(e.clientX, e.clientY)) { doSell(d.i); return; }
+        const j = cellIndexAt(e.clientX, e.clientY);
+        if (j >= 0 && j !== d.i) { doMove(d.i, j); return; }
+      }
+      boardKey = ''; renderBoard(true); return;
+    }
+    // 沒拖動 = 點選
+    if (e.type !== 'pointerup' || !cur || cur.id !== d.id) return;
+    if (selId == null) selId = cur.id;
+    else if (selId === cur.id) selId = null;
+    else {
+      const si = G.board.findIndex(q => q && q.id === selId);
+      if (si >= 0 && ET.canMerge(G, si, d.i)) { doMove(si, d.i); return; }
+      selId = cur.id;
+    }
+    boardKey = ''; renderBoard(true);
+  }
+  addEventListener('pointerup', endDrag);        // 掛在 window：不管在哪放開都會結束拖曳
+  addEventListener('pointercancel', endDrag);
+  addEventListener('blur', cancelDrag);
+  sellEl.addEventListener('click', () => {
+    if (selId == null) { toast('先點一個東西，或直接把它拖過來'); return; }
+    const si = G.board.findIndex(q => q && q.id === selId);
+    if (si >= 0) doSell(si);
+  });
+
+  $('#bMergeAll').addEventListener('click', () => {
+    const n = ET.mergeAll(G);
+    selId = null;
+    if (n === 0) { toast('沒有成對的可以合成'); return; }
+    toast(`✨ 一鍵合成 ${n} 次`); vib(25);
+    boardKey = ''; flush(); renderBoard(true); renderTop();
+  });
+  // 客人缺的東西，一行文字：🍔+（🌾 還差 6）
+  function demandText(list) {
+    return (list || DM).map(d => {
+      const crop = ET.cropOf(d.s), ce = crop ? ET.CROPS[crop].emoji : SER[d.s].tiers[0];
+      return `${ET.wantText(d)}（${d.short > 0 ? ce + ' 還差 ' + d.short : '材料夠了'}）`;
+    }).join('　');
+  }
+  $('#bNeed').addEventListener('click', () => {
+    const r = ET.prepareDemand(G);
+    if (r.merges || r.stocked) toast(`🎯 為客人合成了 ${r.merges} 次、上架 ${r.stocked} 件`);
+    else if (r.demand.length) toast(`🎯 材料還不夠：${demandText(r.demand)}。去花園多種`);
+    else toast('客人要的都有貨了');
+    boardKey = ''; flush(); renderBoard(true); renderShop(); renderTop();
+  });
+  function renderAuto() {
+    if (tab !== 'merge') return;
+    $('#needBar').hidden = !DM.length;
+    if (DM.length) $('#needTxt').textContent = '🎯 客人要：' + demandText();
+    $('#bMergeAll').classList.toggle('off', !ET.hasPair(G));
+    const parts = [];
+    if (G.up.bot > 0) {
+      const iv = ET.botInterval(G.up.bot), left = Math.max(0, iv - G.botT);
+      parts.push(`🤖 ${left < 0.05 ? '待命' : left.toFixed(1) + ' 秒後合成'}`);
+    }
+    if (G.up.shipper > 0) parts.push('🚚 自動出貨中');
+    $('#autoInfo').textContent = parts.length ? parts.join('　') : '到 ⬆️ 升級可以買 🤖 機器人幫你合成';
+  }
+
+  // ---------- 商店 ----------
+  const laneEl = $('#lane'), shelvesEl = $('#shelves');
+  let laneIds = '', shelfSig = '', shelfEls = [];
+  const tierEmoji = (s, t) => SER[s].tiers[t - 1];
+  const wantTxt = c => c.kind === 'thief' ? '❗' : c.kind === 'noble' ? `${tierEmoji(c.s, c.t)}×${c.qty}+` : `${tierEmoji(c.s, c.t)}${c.t < ET.MAXT ? '+' : ''}`;
+  function renderShop() {
+    if (tab !== 'shop') return;
+    const sp = G.shop, st = ET.stars(G);
+    $('#stars').innerHTML = '⭐'.repeat(st) + '☆'.repeat(5 - st) + `<small>人氣 ${Math.floor(sp.pop)}</small>`;
+    $('#shopStat').textContent = `賣出 ${sp.sales} 件　流失 ${sp.lost}`;
+    const ids = sp.custs.map(c => c.id).join(',');
+    if (ids !== laneIds) {
+      laneIds = ids;
+      laneEl.innerHTML = sp.custs.map(c => `<div class="cust ${c.kind}" data-id="${c.id}"><span class="bub">${wantTxt(c)}</span><span class="face">${c.face}</span><span class="pat"><i></i></span></div>`).join('');
+    }
+    sp.custs.forEach((c, i) => {
+      const el = laneEl.children[i]; if (!el) return;
+      const ok = ET.canServe(G, c), left = Math.max(0, 1 - c.wait / c.pat);
+      el.classList.toggle('ok', ok); el.classList.toggle('warn', !ok && left < 0.35);
+      el.lastChild.firstChild.style.width = (ok ? 1 : left) * 100 + '%';
+    });
+    const sig = sp.shelves.map(x => (x.item ? x.item.s + x.item.t : '-') + '/' + (x.tpl ? x.tpl.s + x.tpl.t : '-')).join('|') + '|' + G.up.sign;
+    if (sig !== shelfSig) {
+      shelfSig = sig;
+      shelvesEl.innerHTML = sp.shelves.map((x, i) => {
+        if (x.item) return `<button class="shelf full" data-i="${i}"><span class="em">${tierEmoji(x.item.s, x.item.t)}</span><span class="t">${x.item.t}</span><span class="pr">💰${ET.price(G, x.item.s, x.item.t)}</span></button>`;
+        if (x.tpl) return `<button class="shelf" data-i="${i}"><span class="em tpl">${tierEmoji(x.tpl.s, x.tpl.t)}</span><span class="pr">缺貨</span></button>`;
+        return `<button class="shelf" data-i="${i}"><span class="plus">＋</span></button>`;
+      }).join('');
+      shelfEls = Array.from(shelvesEl.children); resize();
+    }
+    $('#shopInfo').textContent = DM.length ? '🎯 客人缺：' + demandText() + '　點沒貨的客人看做法' : G.up.clerk > 0 ? '🛎️ 店員顧店中：缺貨先合成再補、趕走小偷（離線也一樣）' : '點客人 = 立刻結帳還有小費。補貨會先把缺的貨合成出來；雇 🛎️ 店員可以自動補貨';
+  }
+  laneEl.addEventListener('pointerdown', e => {
+    const el = e.target.closest('.cust'); if (!el || modalOpen) return;
+    const id = +el.dataset.id, c = G.shop.custs.find(x => x.id === id);
+    const r = ET.serveNow(G, id);
+    laneIds = ''; flush(); renderShop(); renderTop();
+    if (!r.ok && r.why === 'nostock' && c) openRecipe(c);
+  });
+  // 這位客人要的東西怎麼做：合成路徑、你現在有多少、還差多少
+  function openRecipe(c) {
+    const S = SER[c.s], q = c.qty, T = c.t, crop = ET.cropOf(c.s), ce = crop ? ET.CROPS[crop].emoji : S.tiers[0];
+    const chain = [];
+    for (let k = 1; k <= T; k++) chain.push(`${S.tiers[k - 1]}×${q * Math.pow(2, T - k)}`);
+    const cnt = {}; let have = 0;
+    for (const it of G.board) if (it && it.s === c.s) { cnt[it.t] = (cnt[it.t] || 0) + 1; have += Math.pow(2, it.t - 1); }
+    const haveTxt = Object.keys(cnt).map(Number).sort((a, b) => a - b).map(t => `${S.tiers[t - 1]}×${cnt[t]}`).join('　') || '（沒有）';
+    const short = Math.max(0, q * Math.pow(2, T - 1) - have);
+    let h = `<div class="big">${S.tiers[T - 1]}</div><h2>${S.names[T - 1]} 怎麼做？</h2>
+      <p style="text-align:center">客人要 ${S.tiers[T - 1]}${q > 1 ? ' ×' + q : ''}${T < ET.MAXT ? `（更高階的 ${S.tiers[T]} 也可以）` : ''}</p>
+      <div class="recipe">${chain.join(' → ')}</div>
+      <p style="text-align:center">兩個一樣的拖在一起，就會升一階。</p>
+      <p style="text-align:center">你的合成盤：${haveTxt}<br>${short > 0 ? `約等於 ${have} 個 ${ce}，還差 <b>${short}</b> 個 → 去花園多種 ${ce}` : '材料夠了！按下面的按鈕幫你合成並上架。'}</p>
+      <button class="btn" data-a="prep">🎯 幫我合成並上架</button>
+      <div class="row"><button class="btn ghost" data-a="garden">🌱 去種 ${ce}</button><button class="btn ghost" data-a="merge">⚗️ 去合成</button></div>
+      <button class="btn ghost" data-a="close">關閉</button>`;
+    showModal(h, a => {
+      closeModal();
+      if (a === 'prep') {
+        const r = ET.prepareDemand(G);
+        toast(r.merges || r.stocked ? `🎯 合成了 ${r.merges} 次、上架 ${r.stocked} 件` : '材料還不夠，去花園多種一些');
+        flush(); renderShop(); renderTop();
+      } else if (a === 'garden') {
+        if (crop && ET.select(G, crop)) { seedKey = ''; toast(`已選 ${ce}，點空地種下去`); } else toast(ce + ' 還沒解鎖');
+        setTab('garden');
+      } else if (a === 'merge') setTab('merge');
+    });
+  }
+  shelvesEl.addEventListener('click', e => { const b = e.target.closest('.shelf'); if (b && !modalOpen) openShelf(+b.dataset.i); });
+  $('#bRestock').addEventListener('click', () => {
+    const m0 = G.stats.merges, n = ET.restock(G), m = G.stats.merges - m0;
+    toast(n ? `🔄 補了 ${n} 格${m ? `（先合成了 ${m} 次）` : ''}` : (m ? `先合成了 ${m} 次，但還湊不出缺的貨` : '沒有可補的東西（合成盤上沒有合適的貨）'));
+    flush(); renderShop(); renderTop(); if (tab === 'merge') renderBoard(true);
+  });
+  $('#bTakeAll').addEventListener('click', () => {
+    const n = ET.takeAll(G);
+    toast(n ? `📥 取回 ${n} 件` : '貨架上沒有東西，或合成盤滿了');
+    flush(); renderShop(); renderTop();
+  });
+  function openShelf(i) {
+    const sh = G.shop.shelves[i];
+    if (!sh) return;
+    const cnt = {}, order = Object.keys(SER);
+    for (const it of G.board) if (it) { const k = it.s + ':' + it.t; cnt[k] = (cnt[k] || 0) + 1; }
+    const keys = Object.keys(cnt).sort((a, b) => { const [sa, ta] = a.split(':'), [sb, tb] = b.split(':'); return order.indexOf(sa) - order.indexOf(sb) || ta - tb; });
+    let h = `<h2>📚 貨架 ${i + 1}</h2>`;
+    if (sh.item) h += `<p style="text-align:center">目前上架：<b style="font-size:26px">${tierEmoji(sh.item.s, sh.item.t)}</b>　售價 💰${ET.price(G, sh.item.s, sh.item.t)}</p><button class="btn ghost" data-a="back">↩️ 取回合成盤</button>`;
+    else if (sh.tpl) h += `<p style="text-align:center">商品設定：<b style="font-size:26px">${tierEmoji(sh.tpl.s, sh.tpl.t)}</b>（🛎️ 店員會照這個補貨）</p><button class="btn ghost" data-a="clear">🧹 清除商品設定</button>`;
+    h += keys.length
+      ? `<p>從合成盤選一個放上去：</p><div class="pick">${keys.map(k => { const [s2, t2] = k.split(':'); return `<button class="pk" data-a="p:${k}">${tierEmoji(s2, +t2)}<small>×${cnt[k]}</small><small>💰${ET.price(G, s2, +t2)}</small></button>`; }).join('')}</div>`
+      : '<p>合成盤上沒有東西可以放。去花園收成，再回來上架。</p>';
+    h += '<button class="btn" data-a="close">關閉</button>';
+    showModal(h, a => {
+      if (a === 'close') { closeModal(); return; }
+      if (a === 'back') { const r = ET.takeBack(G, i); if (!r.ok) toast('合成盤滿了，放不回去'); }
+      else if (a === 'clear') ET.clearTpl(G, i);
+      else if (a.startsWith('p:')) { const [s2, t2] = a.slice(2).split(':'); ET.stock(G, i, s2, +t2); }
+      closeModal(); flush(); renderShop(); renderTop(); if (tab === 'merge') renderBoard(true);
+    });
+  }
+
+  // ---------- 頂部 ----------
+  let lastCoins = -1, hintLast = '';
+  function renderTop() {
+    if (G.coins !== lastCoins) { lastCoins = G.coins; $('#coinN').textContent = fmt(G.coins); }
+    $('#bUp .dot').hidden = !ET.affordable(G);
+    const h = ET.hint(G);
+    if (h !== hintLast) { hintLast = h; $('#hint').textContent = h; }
+    const tabs = $('#tabs').children;
+    if (tabs[0]) { const d = tabs[0].querySelector('.dot'); if (d) d.hidden = !(tab !== 'garden' && G.plots.some(ET.isRipe)); }
+    if (tabs[1] && G.unlocked.merge) { const d = tabs[1].querySelector('.dot'); if (d) d.hidden = !(tab !== 'merge' && hasPairUI()); }
+    if (tabs[2] && G.unlocked.shop) { const d = tabs[2].querySelector('.dot'); if (d) d.hidden = !(tab !== 'shop' && G.shop.custs.some(c => c.kind === 'thief' || !ET.canServe(G, c))); }
+  }
+
+  // ---------- 事件（core 產生，UI 播動畫） ----------
+  function flush() {
+    for (const e of G.ev) {
+      switch (e.t) {
+        case 'harvest': floatAt(plotEls[e.i], '+' + SER[ET.CROPS[e.crop].series].tiers[0]); SND.harvest(); plotCache[e.i] = null; break;
+        case 'plant': SND.plant(); plotCache[e.i] = null; break;
+        case 'boost': floatAt(plotEls[e.i], '⏩', -8); SND.boost(); break;
+        case 'merge': {
+          SND.merge(e.tier);
+          const c = tab === 'merge' && boardEl.children[e.to];
+          if (c) { floatAt(c, SER[e.s].tiers[e.tier - 1] + '!'); }
+          mergedCell = e.to; break;
+        }
+        case 'sell': floatAt(sellEl, '+' + fmt(e.v) + ' 💰'); SND.sell(); break;
+        case 'buy': case 'expand': SND.buy(); break;
+        case 'unlock': toast(e.tab === 'shop' ? '🏪 商店開張了！去商店把東西上架' : '⚗️ 合成台解鎖了！'); SND.unlock(); buildTabs(); break;
+        case 'sale': floatAt(tab === 'shop' && shelfEls[e.slot] ? shelfEls[e.slot] : $('#coins'), '+' + fmt(e.total) + ' 💰' + (e.tip ? ' 小費' : '')); SND.sell(); break;
+        case 'lost': if (tab === 'shop') floatAt(laneEl, '😞'); break;
+        case 'stolen': toast(`🦹 偷走了 ${tierEmoji(e.s, e.tier)}！下次點他趕走，或雇 🛎️ 店員`); break;
+        case 'chase': floatAt(laneEl, e.auto ? '🛎️💨' : '💨'); break;
+        case 'toast': toast(e.text); break;
+        case 'full': toast('📦 合成盤滿了！去合成或賣出'); break;
+      }
+    }
+    G.ev.length = 0;
+  }
+  let mergedCell = -1;
+
+  // ---------- 升級 / 設定 / 離線 modal ----------
+  function openUpgrades() {
+    let h = '<h2>⬆️ 升級</h2>';
+    let any = false;
+    for (const [grp, title] of [['farm', '🌾 農場'], ['shop', '🏪 商店']]) {
+      let head = false;
+      for (const u of ET.UPGRADES) {
+      if (u.group !== grp || !ET.upgradeVisible(G, u.id)) continue;
+      if (!head) { h += `<div class="up-h">${title}</div>`; head = true; }
+      any = true;
+      const l = G.up[u.id], maxed = l >= u.max, c = ET.upgradeCost(G, u.id);
+      h += `<div class="up"><div class="ue">${u.emoji}</div><div class="ub"><b>${u.name}${u.max > 1 && l > 0 ? ' Lv.' + l : ''}</b><small>${maxed ? '✅ 已滿級 — ' : ''}${u.desc(l)}</small></div>` +
+        (maxed ? '' : `<button class="btn${G.coins < c ? ' off' : ''}" data-a="buy:${u.id}">💰${fmt(c)}</button>`) + '</div>';
+      }
+    }
+    if (!any) h += '<p>多賺一點錢，升級項目就會出現。</p>';
+    h += '<button class="btn ghost" data-a="close">關閉</button>';
+    showModal(h, (a) => {
+      if (a === 'close') { closeModal(); return; }
+      if (a.startsWith('buy:')) {
+        const r = ET.buy(G, a.slice(4));
+        if (!r.ok && r.why === 'coins') toast('💰 錢還不夠');
+        flush(); plotCache = []; seedKey = ''; renderTop(); renderGarden(); openUpgrades();
+      }
+    });
+  }
+  function encode(s) { return btoa(unescape(encodeURIComponent(s))); }
+  function decode(s) { return decodeURIComponent(escape(atob(s.trim()))); }
+  function openSettings() {
+    showModal(`<h2>⚙️ 設定</h2>
+      <button class="btn ghost" data-a="snd">${pref.mute ? '🔇 音效：關' : '🔊 音效：開'}</button>
+      <button class="btn ghost" data-a="export">📤 匯出存檔碼</button>
+      <button class="btn ghost" data-a="import">📥 匯入存檔碼</button>
+      <button class="btn ghost" data-a="reset">🗑️ 重置遊戲</button>
+      <p>表情小鎮 S2　每 10 秒自動存檔。換裝置或清瀏覽器資料前，請先匯出存檔碼。</p>
+      <button class="btn" data-a="close">關閉</button>`, (a, el) => {
+      if (a === 'close') closeModal();
+      else if (a === 'snd') { pref.mute = pref.mute ? 0 : 1; savePref(); openSettings(); }
+      else if (a === 'export') {
+        save();
+        showModal(`<h2>📤 存檔碼</h2><p>整段複製起來，存到安全的地方。</p><textarea id="code" readonly>${encode(ET.save(G, Date.now()))}</textarea>
+          <button class="btn" data-a="copy">複製</button><button class="btn ghost" data-a="back">返回</button>`, (b) => {
+          if (b === 'back') openSettings();
+          else if (b === 'copy') { const t = $('#code'); t.select(); try { navigator.clipboard.writeText(t.value); toast('已複製'); } catch (e) { document.execCommand && document.execCommand('copy'); toast('已複製'); } }
+        });
+      } else if (a === 'import') {
+        showModal(`<h2>📥 匯入存檔碼</h2><p>貼上之前匯出的存檔碼。會覆蓋目前的進度！</p><textarea id="code"></textarea>
+          <button class="btn" data-a="go">匯入</button><button class="btn ghost" data-a="back">返回</button>`, (b) => {
+          if (b === 'back') openSettings();
+          else if (b === 'go') {
+            let g = null;
+            try { g = ET.load(decode($('#code').value)); } catch (e) { }
+            if (!g) { toast('存檔碼不正確'); return; }
+            G = g; save(); resetUI(); closeModal(); toast('匯入完成');
+          }
+        });
+      } else if (a === 'reset') {
+        if (el.dataset.sure) { G = ET.newState(Date.now()); save(); resetUI(); closeModal(); toast('已重置'); }
+        else { el.dataset.sure = 1; el.textContent = '⚠️ 再按一次確認（無法復原）'; }
+      }
+    });
+  }
+  function openOffline(s) {
+    const hv = Object.keys(s.harvested).map(c => `<span>${ET.CROPS[c].emoji} ×${s.harvested[c].toLocaleString()}</span>`).join('');
+    let h = `<div class="big">☀️</div><h2>歡迎回來！</h2><p style="text-align:center">你不在的 ${fmtDur(s.rawSec)}${s.capped ? `（只算 ${fmtDur(s.sec)}）` : ''}：</p>`;
+    if (hv) h += `<div class="sum">${hv}</div>`;
+    else h += `<p style="text-align:center">作物熟了，但沒人收成 😢<br>到 ⬆️ 升級買 🚜 農夫，下次離線也會幫你收。</p>`;
+    if (s.merges || s.sold) h += `<p style="text-align:center">合成 ${s.merges.toLocaleString()} 次${s.sold ? `、賣出區賣了 ${s.sold.toLocaleString()} 件` : ''}</p>`;
+    if (s.shopSales) h += `<p style="text-align:center">🏪 商店賣出 ${s.shopSales.toLocaleString()} 件，營收 💰${fmt(s.shopRevenue)}${s.shopLost ? `；${s.shopLost.toLocaleString()} 位客人沒買到就走了` : ''}${s.shopStolen ? `；被偷了 ${s.shopStolen} 件 🦹` : ''}</p>`;
+    else if (G.unlocked.shop && s.shopLost) h += `<p style="text-align:center">🏪 貨架空了，${s.shopLost.toLocaleString()} 位客人沒買到就走了。雇 🛎️ 店員可以自動補貨。</p>`;
+    if (s.earned) h += `<p style="text-align:center;font-size:18px;color:var(--text)"><b>總共賺了 💰${fmt(s.earned)}</b></p>`;
+    if (s.capped) h += `<p style="text-align:center">離線最多累積 ${ET.offlineCapHours(G)} 小時，可以在 ⬆️ 升級提高。</p>`;
+    h += '<button class="btn" data-a="ok">收下</button>';
+    showModal(h, () => closeModal());
+  }
+
+  $('#bUp').addEventListener('click', () => { if (!modalOpen) openUpgrades(); });
+  $('#bSet').addEventListener('click', () => { if (!modalOpen) openSettings(); });
+
+  // ---------- 版面尺寸 ----------
+  function resize() {
+    const p = plotEls[0]; if (p) $('#plots').style.setProperty('--pw', p.clientWidth + 'px');
+    const sw = shelvesEl.firstChild; if (sw) shelvesEl.style.setProperty('--sw', sw.clientWidth + 'px');
+    const c = boardEl.firstChild; if (c) boardEl.style.setProperty('--cw', c.clientWidth + 'px');
+    else boardEl.style.setProperty('--cw', Math.min(boardEl.clientWidth, 420) / 5 + 'px');
+  }
+  addEventListener('resize', resize);
+
+  function resetUI() {
+    cancelDrag();
+    selId = null; plotEls = []; plotCache = []; seedKey = ''; boardKey = ''; hintLast = ''; lastCoins = -1; tab = 'garden';
+    laneIds = ''; shelfSig = ''; DM = G.unlocked.shop ? ET.demand(G) : [];
+    showView('garden');
+    buildTabs(); buildPlots(); renderGarden(); renderTop();
+  }
+
+  // ---------- 主迴圈 ----------
+  let last = Date.now(), saveT = 0;
+  function loop() {
+    const now = Date.now(), gap = (now - last) / 1000;
+    last = now;
+    if (gap < 0) return;                   // 系統時間倒退：不給收益
+    if (gap > 5) {                         // 分頁在背景被凍結：用離線補算
+      const s = ET.offline(G, gap);
+      if (s && gap >= 30 && !modalOpen) { s.rawSec = gap; openOffline(s); }
+      plotCache = []; boardKey = '';
+    } else ET.tick(G, gap);
+    flush();
+    DM = G.unlocked.shop ? ET.demand(G) : [];
+    renderGarden(); renderBoard(); renderShop(); renderAuto(); renderTop();
+    if (mergedCell >= 0) { const c = boardEl.children[mergedCell]; if (c) { c.classList.add('merged'); setTimeout(() => c.classList.remove('merged'), 360); } mergedCell = -1; }
+    saveT += gap; if (saveT >= 10) { saveT = 0; save(); }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  addEventListener('pagehide', save);
+  addEventListener('beforeunload', save);
+  document.addEventListener('freeze', save);
+
+  // ---------- 啟動 ----------
+  loadPref();
+  let bootOffline = null;
+  const saved = lsGet(KEY);
+  const loaded = saved ? ET.load(saved) : null;
+  if (loaded) {
+    G = loaded;
+    const gap = ET.offlineSeconds(G, Date.now());
+    if (gap >= 1) { bootOffline = ET.offline(G, gap); if (bootOffline) bootOffline.rawSec = gap; }
+    G.ev.length = 0;
+  } else G = ET.newState(Date.now());
+  last = Date.now();
+  resetUI();
+  save();
+  setInterval(loop, 100);
+  if (bootOffline && bootOffline.sec >= 30) openOffline(bootOffline);
+  window.__town = { get G() { return G; }, ET };
+})();
+
+</script>
+<script>
+(function () {
+  if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
+  var reloading = false, hadController = !!navigator.serviceWorker.controller;
+  // 只有「換版」才重新載入；第一次安裝時 service worker 接手不需要重載
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (!hadController) { hadController = true; return; }
+    if (reloading) return; reloading = true; location.reload();
+  });
+  function banner(reg) {
+    if (document.getElementById('updbar')) return;
+    var b = document.createElement('button');
+    b.id = 'updbar'; b.textContent = '🔄 有新版本，點這裡更新';
+    b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 8px);z-index:100;background:#ff9f43;color:#3a2300;border:0;border-radius:999px;padding:10px 18px;font:700 14px system-ui,sans-serif;box-shadow:0 4px 14px #0004;cursor:pointer';
+    b.onclick = function () { b.textContent = '更新中…'; if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING'); else location.reload(); };
+    document.body.appendChild(b);
+  }
+  navigator.serviceWorker.register('sw.js').then(function (reg) {
+    if (reg.waiting && navigator.serviceWorker.controller) banner(reg);
+    reg.addEventListener('updatefound', function () {
+      var w = reg.installing; if (!w) return;
+      w.addEventListener('statechange', function () { if (w.state === 'installed' && navigator.serviceWorker.controller) banner(reg); });
+    });
+    var check = function () { try { reg.update(); } catch (e) {} };
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) check(); });
+    setInterval(check, 30 * 60 * 1000);
+  }).catch(function () {});
+  // 申請「永久儲存」：存檔比較不容易被瀏覽器清掉（已安裝的 PWA 通常會被允許）
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+})();
+</script>
+</body>
+</html>

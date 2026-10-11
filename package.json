@@ -1,0 +1,11 @@
+{
+  "name": "emoji-town",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node tests/core.test.js && node tests/pwa.test.js",
+    "sim": "node tools/sim.js",
+    "build:pwa": "node tools/build_pwa.js",
+    "build:artifact": "node tools/build_artifact.js"
+  }
+}
