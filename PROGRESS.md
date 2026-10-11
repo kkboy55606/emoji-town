@@ -13,6 +13,14 @@
 - **不是 PWA**：Artifact 的環境明確不支援 service worker（沒有離線安裝）。真正的 PWA 需要放到 HTTPS 靜態主機（例如 GitHub Pages）並補上 manifest + service worker + 圖示，需要使用者的帳號與同意，尚未做。
 - 風險：瀏覽器的 localStorage 可能被清除（清除網站資料、無痕視窗；iPhone 的 Safari 也可能清掉很久沒開的網站資料），請定期匯出存檔碼備份。
 
+### 正式上線（GitHub Pages）
+
+- **網址：https://kkboy55606.github.io/emoji-town/**　repo：https://github.com/kkboy55606/emoji-town（公開）。Pages 來源：main 分支的 `/docs`。
+- 更新流程：改程式 → `npm test` → `node tools/build_pwa.js` → `git add -A && git commit && git push` → 約 1 分鐘後上線；已安裝的手機會在下次開啟（或回到前景）時看到「🔄 有新版本，點這裡更新」。
+- 上線驗證：`node tools/pwa_live.js https://kkboy55606.github.io/emoji-town/`（真的 Chrome，6 項：HTTPS、service worker、快取、manifest 與圖示、無錯誤、存檔）。
+- 目前上線的是 S2（不含冒險）。S3 完成後用 `node tools/build_pwa.js --adv`。
+- git 提交作者用 GitHub 的 noreply 信箱（`9152508+kkboy55606@users.noreply.github.com`），不會公開個人信箱。
+
 ### PWA（GitHub Pages）
 
 - `node tools/build_pwa.js`（加 `--adv` 含冒險）→ 產生 `docs/`：單檔 `index.html`、`manifest.webmanifest`、`sw.js`、圖示、`.nojekyll`。GitHub Pages 設成「main 分支的 /docs 資料夾」。
@@ -81,10 +89,12 @@
 - 🧙 旅行商人、異物合成配方 ⏸。
 - 音效是 WebAudio 合成的簡單嗶聲；商店目前只有成交音效。
 - 沒有圖鑑頁（`G.dex` 已在記錄發現的物品，S6 做畫面）。
-- 專案尚未 `git init`。
 
 ## 變更紀錄
 
+- 2026-10-11：**上線 GitHub Pages**。建立公開 repo `kkboy55606/emoji-town`、推上去、開啟 Pages（main /docs）；首次建置約 1 分鐘。新增 `tools/pwa_live.js`。
+  驗收：正式網址用真的 Chrome 驗證 6/6（HTTPS 啟動、service worker 在 `https://kkboy55606.github.io/emoji-town/` 註冊並啟用、預先快取 7 項、manifest 與 192 / 512 / apple-touch 圖示皆 200 的 PNG、無 JS 錯誤、存檔重新載入還在）。
+  **未驗**：iPhone「加入主畫面」與 Android 安裝提示的實際畫面（需要真手機）；已安裝 PWA 在手機上的離線行為（桌面 Chrome 已驗）。
 - 2026-10-11：**PWA 打包完成（尚未上傳到 GitHub）**。新增 `tools/build_pwa.js`、`tools/bundle.js`（Artifact 與 PWA 共用的打包邏輯，`build_artifact.js` 改用它）、`tools/pwa_e2e.js`、`tests/pwa.test.js`、`pwa/icons/`、`.gitignore`。
   抓到並修掉一個問題：第一次安裝時 service worker 接手會觸發 `controllerchange`，原本的寫法會讓頁面多重新載入一次；改成只有「換版」才重載（`hadController` 判斷，附原始碼防護測試）。
   驗收：`npm test` 核心 97 + PWA 10 全綠；`pwa_e2e` 9/9（真的 Chrome）。兩條路徑回歸測試都已驗證「改成 /sw.js、/manifest」會失敗。
