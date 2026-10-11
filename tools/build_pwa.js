@@ -1,11 +1,11 @@
 // 打包成 PWA（給 GitHub Pages 的 /docs 用）。用法：
-//   node tools/build_pwa.js          → 不含 S3 冒險
-//   node tools/build_pwa.js --adv    → 含 S3 冒險
+//   node tools/build_pwa.js            → 含 S3 冒險（預設）
+//   node tools/build_pwa.js --no-adv   → 不含冒險
 // 產出 docs/：index.html（單檔，CSS / JS 全內嵌）、manifest.webmanifest、sw.js、icons/、.nojekyll
 // 所有路徑都用相對路徑，因為 GitHub Pages 的網址是 https://帳號.github.io/專案名/（有子路徑）。
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const { root, bundle } = require('./bundle');
-const withAdv = process.argv.includes('--adv');
+const withAdv = !process.argv.includes('--no-adv');
 const { markup, css, js } = bundle(withAdv);
 
 const out = path.join(root, 'docs');

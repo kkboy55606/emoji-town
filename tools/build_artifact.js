@@ -1,12 +1,12 @@
 // 打包成 Artifact 單檔。用法：
-//   node tools/build_artifact.js          → 不含 S3 冒險（目前穩定版）
-//   node tools/build_artifact.js --adv    → 含 S3 冒險
+//   node tools/build_artifact.js            → 含 S3 冒險（預設）
+//   node tools/build_artifact.js --no-adv   → 不含冒險
 // 產出：
 //   dist/artifact.html  要發佈的檔案（只有 <title>、<style>、頁面結構、<script>；平台會自己包上 doctype / head / body）
 //   dist/preview.html   本機預覽用：把上面那份包進和平台外殼相近的文件（doctype、viewport、安全區 padding、14px 字級）
 const fs = require('fs'), path = require('path');
 const { root, bundle } = require('./bundle');
-const withAdv = process.argv.includes('--adv');
+const withAdv = !process.argv.includes('--no-adv');
 const { markup, css, js } = bundle(withAdv);
 
 const fragment = `<title>表情小鎮</title>

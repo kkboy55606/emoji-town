@@ -48,6 +48,11 @@ test('回歸：不能有以 / 開頭的路徑（GitHub Pages 有子路徑 /專�
   assert.strictEqual(m.start_url, './'); assert.strictEqual(m.scope, './');
   for (const i of m.icons) assert.ok(!i.src.startsWith('/'), i.src);
 });
+test('預設打包含 S3 冒險（畫面與核心都在）', () => {
+  const h = text('index.html');
+  assert.ok(/id="v-quest"/.test(h) && /ET\.newAdv/.test(h) && /function renderQuest/.test(h) && /ET\.heroStats/.test(h));
+  assert.ok(!/ET\.advCheck = function \(\) \{\}/.test(h), '不能是空殼版本');
+});
 test('第一次安裝不重載頁面（只有換版才重載）', () => {
   const h = text('index.html');
   assert.ok(/hadController/.test(h) && /if \(!hadController\)/.test(h), 'controllerchange 要判斷之前有沒有 controller');

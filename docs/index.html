@@ -171,6 +171,60 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* 寬螢幕（桌面瀏覽器、被拉得很高的視窗）：遊戲高度上限 800px，不要被拉成幾千像素高；手機不受影響 */
 @media (min-width:700px){:root{--H:min(100dvh,800px);--Hmax:800px}}
 
+/* ---- 冒險 ---- */
+#qTop{width:min(100%,420px);display:flex;flex-direction:column;gap:8px;flex:none}
+#areas{display:flex;gap:6px}
+.qarea{flex:1;min-width:0;border:2px solid var(--line);border-radius:14px;background:var(--panel);padding:5px 2px;display:flex;flex-direction:column;align-items:center;line-height:1.2;box-shadow:var(--shadow)}
+.qarea b{font-size:22px;font-weight:400}
+.qarea small{font-size:11px;color:var(--dim)}
+.qarea.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel))}
+.qarea.lock{opacity:.5}
+#stageDots{display:flex;gap:4px;justify-content:center}
+#stageDots i{flex:1;max-width:34px;height:20px;border-radius:7px;background:var(--cell);display:grid;place-items:center;font-style:normal;font-size:12px;color:var(--dim)}
+#stageDots i.done{background:color-mix(in srgb,var(--good) 55%,var(--cell))}
+#stageDots i.cur{outline:3px solid var(--accent);outline-offset:1px}
+#field{width:min(100%,420px);display:flex;flex-direction:column;gap:10px;flex:none;border-radius:20px;padding:12px;background:linear-gradient(var(--cell),var(--cell2));border:1px solid var(--line)}
+#mobs{display:flex;gap:8px;justify-content:center;min-height:104px;align-items:flex-end}
+#mobs .rest{align-self:center;color:var(--dim);font-size:14px}
+.mob{position:relative;width:78px;height:92px;border-radius:16px;border:2px solid var(--line);background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;box-shadow:var(--shadow);touch-action:manipulation}
+.mob .me{font-size:38px;line-height:1}
+.mob.boss{width:96px;height:104px;border-color:var(--bad)}
+.mob.boss .me{font-size:50px}
+.mob.dead{opacity:.25;filter:grayscale(1)}
+.hpb{display:block;width:80%;height:6px;border-radius:3px;background:#0003;overflow:hidden;margin-top:6px}
+.hpb i{display:block;height:100%;background:var(--bad);transition:width .15s}
+.hero .hpb i{background:var(--good)}
+#qInfo{text-align:center;font-size:13px;color:var(--dim);min-height:34px;line-height:1.45}
+#heroes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.hero{position:relative;border:2px solid var(--line);border-radius:16px;background:var(--panel);padding:6px 0 7px;display:flex;flex-direction:column;align-items:center;box-shadow:var(--shadow);min-width:0}
+.hero .hr{font-size:30px;line-height:1.1}
+.hero .hl{font-size:11px;color:var(--dim);font-weight:700}
+.hero .hg{display:flex;gap:3px;margin-top:5px}
+.hero .hg u{text-decoration:none;font-size:13px;width:19px;height:19px;border-radius:6px;background:var(--cell);display:grid;place-items:center;color:var(--dim)}
+.hero.down{filter:grayscale(1);opacity:.55}
+.hero.add{border-style:dashed;color:var(--dim);justify-content:center;gap:2px;font-size:11px;box-shadow:none}
+.hero.add b{font-size:26px;font-weight:400}
+#qBtns{display:flex;gap:8px;width:min(100%,420px);flex:none}
+#qBtns .btn{padding:11px 4px;font-size:14px}
+.slotrow{margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}
+.slotrow .sr{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.slotrow .sr b{min-width:40px}
+.slotrow .sr .gn{flex:1;min-width:0;font-size:14px;line-height:1.35}
+.slotrow .sr .gn small{display:block;font-size:12px;color:var(--dim)}
+.mini{padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:13px;font-weight:700}
+.cands{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.cand{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:4px 10px;font-size:22px;line-height:1.3}
+.cand small{font-size:11px;color:var(--dim);display:block;text-align:center}
+.hstats{display:flex;gap:14px;justify-content:center;font-weight:700;margin:6px 0}
+.xpb{height:8px;border-radius:4px;background:var(--cell);overflow:hidden}
+.xpb i{display:block;height:100%;background:#6ea8ff}
+.float.dmg{color:#e5484d}
+.float.heal{color:#2e9e4a}
+.float.gold{color:#c98600}
+.foodq{display:flex;gap:8px;margin:8px 0}
+.foodq button{flex:1;height:56px;border-radius:14px;border:2px dashed var(--line);background:var(--bg);font-size:28px}
+.foodq button.on{border-style:solid}
+
 </style>
 </head>
 <body>
@@ -201,6 +255,19 @@ button{font:inherit;color:inherit;cursor:pointer}
         <button id="bTakeAll" class="btn ghost">📥 全部取回</button>
       </div>
       <div id="shopInfo"></div>
+    </section>
+    <section id="v-quest" class="view" hidden>
+      <div id="qTop"><div id="areas"></div><div id="stageDots"></div></div>
+      <div id="field">
+        <div id="mobs"></div>
+        <div id="qInfo"></div>
+        <div id="heroes"></div>
+      </div>
+      <div id="qBtns">
+        <button id="bForge" class="btn">🔨 鍛造</button>
+        <button id="bFood" class="btn ghost">🍽️ 補給</button>
+        <button id="bRecruit" class="btn ghost">👥 招募</button>
+      </div>
     </section>
     <section id="v-merge" class="view" hidden>
       <div id="board"></div>
@@ -769,6 +836,7 @@ button{font:inherit;color:inherit;cursor:pointer}
     G.unlocked.quest = !!(o.unlocked && o.unlocked.quest);
     G.adv = G.unlocked.quest || o.adv ? ET.sanitizeAdv(o.adv, G) : null;
     if (G.adv && !G.unlocked.quest && G.adv.heroes.length) G.unlocked.quest = true;
+    if (G.adv && !G.unlocked.quest) G.adv = null;      // 還沒解鎖、也沒有英雄：不留空殼
     if (G.unlocked.quest && !G.adv) G.adv = ET.newAdv();
     if (G.adv && !G.adv.heroes.length && G.unlocked.quest) { const A = G.adv; A.heroes.push({ id: A.nextId++, role: 'sword', lvl: 1, xp: 0, hp: 0, gear: { weapon: null, armor: null, trinket: null } }); A.heroes[0].hp = ET.heroStats(G, A.heroes[0]).hp; }
     for (const k of ['seen', 'dex', 'hints']) if (o[k] && typeof o[k] === 'object') G[k] = Object.assign({}, o[k]);
@@ -1123,7 +1191,338 @@ button{font:inherit;color:inherit;cursor:pointer}
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
-(function (r) { var ET = r.ET; ET.advCheck = function () {}; ET.advTick = function () {}; ET.isGear = function () { return false; }; ET.sanitizeAdv = function () { return null; }; ET.newAdv = function () { return null; }; })(typeof globalThis !== 'undefined' ? globalThis : this);
+// S3 冒險 + 裝備：英雄、自動戰鬥、鍛造、裝備、料理補給。不碰 DOM；亂數走 ET.rand（G.rs）。
+// 戰鬥以「每 1 秒一回合」推進（累積 dt），所以線上 tick 與離線補算結果一致。
+(function (root) {
+  'use strict';
+  const ET = root.ET, AD = ET.ADV, MAXT = ET.MAXT, N = ET.COLS * ET.ROWS;
+  const SLOTS = ['weapon', 'armor', 'trinket'];
+  const ev = (G, o) => { if (G.ev.length < 300) G.ev.push(o); };
+  const lvMul = l => 1 + 0.06 * (l - 1);      // 每級只 +6%：升級是輔助，推進主要靠裝備
+  const roll = G => 0.9 + 0.2 * ET.rand(G);
+  ET.SLOTS = SLOTS;
+  ET.heroXpNeed = l => Math.round(20 * Math.pow(l, 1.5));
+  ET.gearMul = t => Math.pow(ET.GEAR_MUL, t - 1);
+  ET.isGear = s => !!(ET.SERIES[s] && ET.SERIES[s].gear);
+
+  ET.newAdv = () => ({
+    heroes: [], area: 1, stage: 1, reach: { 1: 1 }, open: { 1: true }, cleared: {},
+    battle: null, acc: 0, recover: 0, hold: 0, nextId: 1, forged: {},
+    food: { queue: [], act: null, left: 0 },
+    stats: { stages: 0, kills: 0, defeats: 0, coins: 0, drops: 0 }
+  });
+
+  // ---------- 屬性 ----------
+  function foodMod(A) {
+    const f = A.food.act, m = { atk: 0, def: 0, hp: 0, regen: 0, xp: 0 };
+    if (f && ET.FOOD[f.s] && ET.FOOD[f.s][f.t]) Object.assign(m, ET.FOOD[f.s][f.t]);
+    return m;
+  }
+  ET.foodMod = G => (G.adv ? foodMod(G.adv) : { atk: 0, def: 0, hp: 0, regen: 0, xp: 0 });
+  // 英雄目前屬性：職業底 × 等級 + 裝備（每高 1 階 ×1.7）× 料理加成
+  ET.heroStats = function (G, h) {
+    const R = ET.ROLES[h.role], k = lvMul(h.lvl), m = foodMod(G.adv);
+    let hp = R.hp * k, atk = R.atk * k, def = R.def * k;
+    for (const slot of SLOTS) {
+      const g = h.gear[slot]; if (!g) continue;
+      const b = ET.GEAR[g.s], mul = ET.gearMul(g.t);
+      hp += (b.hp || 0) * mul; atk += (b.atk || 0) * mul; def += (b.def || 0) * mul;
+    }
+    return { hp: Math.round(hp * (1 + m.hp)), atk: atk * (1 + m.atk), def: def * (1 + m.def) };
+  };
+  const maxHp = (G, h) => ET.heroStats(G, h).hp;
+  function addHero(G, role) {
+    const A = G.adv, h = { id: A.nextId++, role, lvl: 1, xp: 0, hp: 0, gear: { weapon: null, armor: null, trinket: null } };
+    h.hp = maxHp(G, h); A.heroes.push(h); return h;
+  }
+  // 戰力換算（給 UI 顯示用）：血量 × 攻擊 的粗估
+  ET.heroPower = (G, h) => { const s = ET.heroStats(G, h); return Math.round(s.hp * 0.2 + s.atk * 4 + s.def * 6); };
+
+  // ---------- 解鎖 ----------
+  ET.advCheck = function (G) {
+    if (G.unlocked.quest) return;
+    if (G.unlocked.shop && G.stats.earned >= AD.unlockEarned) {
+      G.unlocked.quest = true;
+      G.adv = G.adv || ET.newAdv();
+      if (!G.adv.heroes.length) addHero(G, 'sword');
+      ev(G, { t: 'unlock', tab: 'quest' });
+    }
+  };
+
+  // ---------- 招募（S3 暫時用金幣，S4 改成公會招募） ----------
+  ET.recruitCost = G => (G.adv && G.adv.heroes.length < AD.partyMax) ? AD.recruitCost[G.adv.heroes.length] : Infinity;
+  ET.recruit = function (G, role) {
+    const A = G.adv;
+    if (!A) return { ok: false, why: 'locked' };
+    if (A.heroes.length >= AD.partyMax) return { ok: false, why: 'full' };
+    if (!ET.ROLES[role] || A.heroes.some(h => h.role === role)) return { ok: false, why: 'dup' };
+    const c = ET.recruitCost(G);
+    if (G.coins < c) return { ok: false, why: 'coins' };
+    G.coins -= c; addHero(G, role);
+    ev(G, { t: 'recruit', role });
+    return { ok: true };
+  };
+
+  // ---------- 鍛造 ----------
+  ET.forgeCost = (G, id) => {
+    const r = ET.FORGE.find(x => x.id === id);
+    return r ? Math.round(r.coins * Math.pow(ET.FORGE_GROWTH, (G.adv && G.adv.forged[id]) || 0)) : Infinity;
+  };
+  // 合成盤上某系列折合 1 階的總個數
+  ET.matMass = (G, series) => { let m = 0; for (const it of G.board) if (it && it.s === series) m += Math.pow(2, it.t - 1); return m; };
+  function takeMass(G, series, need) {
+    const idx = [];
+    for (let i = 0; i < N; i++) if (G.board[i] && G.board[i].s === series) idx.push(i);
+    idx.sort((a, b) => G.board[a].t - G.board[b].t || a - b);     // 低階先用
+    let got = 0;
+    for (const i of idx) { if (got >= need) break; got += Math.pow(2, G.board[i].t - 1); G.board[i] = null; }
+    G.ver++;
+  }
+  ET.canForge = function (G, id) {
+    const r = ET.FORGE.find(x => x.id === id);
+    if (!r || !G.adv) return { ok: false, why: 'locked' };
+    if (G.coins < ET.forgeCost(G, id)) return { ok: false, why: 'coins' };
+    for (const s in r.mats) if (ET.matMass(G, s) < r.mats[s]) return { ok: false, why: 'mats', need: s };
+    return { ok: true };
+  };
+  ET.forge = function (G, id) {
+    const c = ET.canForge(G, id); if (!c.ok) return c;
+    const r = ET.FORGE.find(x => x.id === id), A = G.adv;
+    G.coins -= ET.forgeCost(G, id);
+    for (const s in r.mats) takeMass(G, s, r.mats[s]);
+    A.forged[id] = (A.forged[id] || 0) + 1;
+    const slot = G.board.indexOf(null);             // 材料至少用掉 1 格，一定有空位
+    ET.addItem(G, slot, r.s, 1);
+    ev(G, { t: 'forge', s: r.s });
+    return { ok: true, slot };
+  };
+
+  // ---------- 裝備 ----------
+  const adjustHp = (G, h, before) => { const after = maxHp(G, h); if (h.hp > 0) h.hp = Math.min(after, h.hp + Math.max(0, after - before)); };
+  ET.equip = function (G, bi, hid) {
+    const A = G.adv, it = G.board[bi], h = A && A.heroes.find(x => x.id === hid);
+    if (!it || !h || !ET.isGear(it.s)) return { ok: false };
+    const slot = ET.SERIES[it.s].gear, old = h.gear[slot], before = maxHp(G, h);
+    h.gear[slot] = { id: it.id, s: it.s, t: it.t };
+    G.board[bi] = old ? { id: old.id, s: old.s, t: old.t } : null;     // 舊的換回同一格
+    adjustHp(G, h, before); G.ver++;
+    ev(G, { t: 'equip', hid });
+    return { ok: true, swapped: !!old };
+  };
+  ET.unequip = function (G, hid, slot) {
+    const A = G.adv, h = A && A.heroes.find(x => x.id === hid), g = h && h.gear[slot];
+    if (!g) return { ok: false, why: 'empty' };
+    const bi = G.board.indexOf(null); if (bi < 0) return { ok: false, why: 'full' };
+    G.board[bi] = { id: g.id, s: g.s, t: g.t }; h.gear[slot] = null;
+    h.hp = Math.min(h.hp, maxHp(G, h)); G.ver++;
+    return { ok: true };
+  };
+  // 強化：合成盤上有一件「同系列、同階」的，吃掉它，身上這件 +1（兩件一樣的合成 → +1）
+  ET.enhance = function (G, hid, slot) {
+    const A = G.adv, h = A && A.heroes.find(x => x.id === hid), g = h && h.gear[slot];
+    if (!g) return { ok: false, why: 'empty' };
+    if (g.t >= MAXT) return { ok: false, why: 'max' };
+    const bi = G.board.findIndex(it => it && it.s === g.s && it.t === g.t);
+    if (bi < 0) return { ok: false, why: 'none' };
+    const before = maxHp(G, h);
+    G.board[bi] = null; g.t++; G.ver++;
+    adjustHp(G, h, before);
+    ev(G, { t: 'enhance', hid, tier: g.t });
+    return { ok: true, tier: g.t };
+  };
+
+  // ---------- 料理補給 ----------
+  ET.canPack = it => !!(it && ET.FOOD[it.s] && ET.FOOD[it.s][it.t]);
+  ET.packFood = function (G, bi) {
+    const A = G.adv, it = G.board[bi];
+    if (!A || !ET.canPack(it)) return { ok: false, why: 'notfood' };
+    if (A.food.queue.length >= ET.FOOD_QUEUE) return { ok: false, why: 'full' };
+    A.food.queue.push({ id: it.id, s: it.s, t: it.t }); G.board[bi] = null; G.ver++;
+    return { ok: true };
+  };
+  ET.unpackFood = function (G, qi) {
+    const A = G.adv, f = A && A.food.queue[qi];
+    if (!f) return { ok: false };
+    const bi = G.board.indexOf(null); if (bi < 0) return { ok: false, why: 'full' };
+    G.board[bi] = { id: f.id, s: f.s, t: f.t }; A.food.queue.splice(qi, 1); G.ver++;
+    return { ok: true };
+  };
+  function tickFood(G) {
+    const F = G.adv.food;
+    if (F.act) { F.left--; if (F.left <= 0) { F.act = null; for (const h of G.adv.heroes) h.hp = Math.min(h.hp, maxHp(G, h)); } }
+    if (!F.act && F.queue.length) { F.act = F.queue.shift(); F.left = ET.FOOD_SEC(F.act.t); ev(G, { t: 'food', s: F.act.s, tier: F.act.t }); }
+  }
+
+  // ---------- 關卡 ----------
+  ET.advGo = function (G, area) {
+    const A = G.adv;
+    if (!A || !A.open[area]) return { ok: false };
+    A.area = area; A.stage = Math.min(AD.stages, A.reach[area] || 1); A.battle = null;
+    return { ok: true };
+  };
+  ET.enemyBase = function (area, stage) {
+    return { hp: 18 * Math.pow(1.25, stage - 1) * Math.pow(4, area - 1), atk: 4 * Math.pow(1.17, stage - 1) * Math.pow(3, area - 1) };
+  };
+  function makeEnemies(area, stage) {
+    const Ar = ET.AREAS[area - 1], b = ET.enemyBase(area, stage), list = [];
+    const n = stage >= 8 ? 3 : stage >= 4 ? 2 : 1;
+    const mk = (m, mulHp, mulAtk) => ({ e: m[0], name: m[1], hp: Math.round(b.hp * mulHp), maxhp: Math.round(b.hp * mulHp), atk: b.atk * mulAtk, def: Ar.def });
+    if (stage === AD.stages) { list.push(mk(Ar.boss, 3.5, 1.4)); for (let i = 0; i < 2; i++) list.push(mk(Ar.mobs[i % Ar.mobs.length], 1, 1)); return list; }
+    for (let i = 0; i < n; i++) list.push(mk(Ar.mobs[(stage + i) % Ar.mobs.length], 1, 1));
+    return list;
+  }
+  ET.stageReward = (area, stage) => Math.round(6 * Math.pow(1.25, stage - 1) * Math.pow(3, area - 1) * (stage === AD.stages ? 2 : 1));
+
+  function gainXp(G, amount) {
+    for (const h of G.adv.heroes) {
+      if (h.hp <= 0 || h.lvl >= AD.heroMaxLv) continue;
+      h.xp += amount;
+      while (h.lvl < AD.heroMaxLv && h.xp >= ET.heroXpNeed(h.lvl)) {
+        h.xp -= ET.heroXpNeed(h.lvl); const before = maxHp(G, h); h.lvl++; adjustHp(G, h, before);
+        ev(G, { t: 'lvl', hid: h.id, lvl: h.lvl });
+      }
+    }
+  }
+  function dropGear(G, area, boss) {
+    const A = G.adv;
+    if (ET.rand(G) >= (boss ? AD.dropBoss : AD.dropNormal)) return;
+    const s = ['blade', 'plate', 'charm'][Math.floor(ET.rand(G) * 3)], t = area >= 2 && ET.rand(G) < 0.3 ? 2 : 1;
+    A.stats.drops++;
+    const slot = G.board.indexOf(null);
+    if (slot >= 0) { ET.addItem(G, slot, s, t); ev(G, { t: 'drop', s, tier: t }); }
+    else { const v = ET.value(s, t); G.coins += v; G.stats.earned += v; A.stats.coins += v; }     // 盤面滿了 → 直接折現，不浪費
+  }
+  function win(G) {
+    const A = G.adv, area = A.area, stage = A.stage, boss = stage === AD.stages;
+    const coins = ET.stageReward(area, stage);
+    G.coins += coins; G.stats.earned += coins;
+    A.stats.coins += coins; A.stats.stages++; A.stats.kills += A.battle.enemies.length;
+    gainXp(G, Math.round(5 * stage * Math.pow(1.6, area - 1) * (1 + foodMod(A).xp)));
+    dropGear(G, area, boss);
+    A.reach[area] = Math.max(A.reach[area] || 1, Math.min(AD.stages, stage + 1));
+    if (boss) {
+      if (!A.cleared[area]) {
+        A.cleared[area] = true;
+        if (ET.AREAS[area]) {
+          A.open[area + 1] = true; A.reach[area + 1] = A.reach[area + 1] || 1;
+          A.area = area + 1; A.stage = Math.min(AD.stages, A.reach[area + 1]); A.hold = 0;       // 自動前進到下一區
+          ev(G, { t: 'toast', text: `🎉 打倒 ${ET.AREAS[area - 1].boss[1]}！前進 ${ET.AREAS[area].emoji} ${ET.AREAS[area].name}` });
+        } else ev(G, { t: 'toast', text: `🎉 打倒 ${ET.AREAS[area - 1].boss[1]}！` });
+      }
+    } else if (A.hold > 0) A.hold--;      // 剛全滅過：先在這一關多打幾場再往上
+    else A.stage = stage + 1;
+    A.battle = null;
+    ev(G, { t: 'advwin', coins, stage, area });
+  }
+  function lose(G) {
+    const A = G.adv;
+    A.stats.defeats++; A.stage = Math.max(1, A.stage - 1); A.battle = null; A.recover = AD.recoverSec; A.hold = AD.holdWins;
+    ev(G, { t: 'advlose' });
+  }
+
+  // ---------- 戰鬥（1 秒一回合） ----------
+  function strike(G, e, dmg, fromHero) {
+    e.hp -= dmg;
+    ev(G, { t: 'hit', side: 'enemy', i: G.adv.battle.enemies.indexOf(e), dmg, from: fromHero });
+  }
+  function battleStep(G) {
+    const A = G.adv, heroes = A.heroes;
+    if (!heroes.length) return;
+    tickFood(G);
+    if (A.recover > 0) {
+      A.recover--;
+      if (A.recover === 0) for (const h of heroes) h.hp = maxHp(G, h);
+      return;
+    }
+    if (!A.battle) A.battle = { enemies: makeEnemies(A.area, A.stage), t: 0 };
+    const B = A.battle, fm = foodMod(A);
+    B.t++;
+    if (fm.regen) for (const h of heroes) if (h.hp > 0) h.hp = Math.min(maxHp(G, h), h.hp + fm.regen);
+    const alive = () => heroes.filter(h => h.hp > 0), mobs = () => B.enemies.filter(e => e.hp > 0);
+    // 英雄行動
+    for (const h of heroes) {
+      if (h.hp <= 0) continue;
+      const ms = mobs(); if (!ms.length) break;
+      const st = ET.heroStats(G, h);
+      if (h.role === 'mage') { for (const e of ms) strike(G, e, Math.max(1, Math.round(st.atk * 0.6 * roll(G) - e.def)), h.id); }
+      else if (h.role === 'elf' && B.t % 2 === 0) {
+        let t = null, tr = 2;
+        for (const x of alive()) { const r = x.hp / maxHp(G, x); if (r < tr) { tr = r; t = x; } }
+        if (t) { const heal = Math.max(3, Math.round(st.atk * 2.2)); t.hp = Math.min(maxHp(G, t), t.hp + heal); ev(G, { t: 'heal', hid: t.id, v: heal }); }
+      } else {
+        const tgt = h.role === 'archer' ? ms[ms.length - 1] : ms[0];
+        strike(G, tgt, Math.max(1, Math.round(st.atk * roll(G) - tgt.def)), h.id);
+      }
+    }
+    if (!mobs().length) { win(G); return; }
+    // 敵人行動：有騎士時 60% 打騎士（嘲諷），其他隨機
+    for (const e of mobs()) {
+      const al = alive(); if (!al.length) break;
+      const kn = al.filter(h => h.role === 'knight');
+      const t = (kn.length && ET.rand(G) < 0.6) ? kn[Math.floor(ET.rand(G) * kn.length)] : al[Math.floor(ET.rand(G) * al.length)];
+      const dmg = Math.max(1, Math.round(e.atk * roll(G) - ET.heroStats(G, t).def));
+      t.hp -= dmg; if (t.hp < 0) t.hp = 0;
+      ev(G, { t: 'hit', side: 'hero', hid: t.id, dmg });
+    }
+    if (!alive().length) lose(G);
+  }
+  ET.advTick = function (G, dt) {
+    const A = G.adv; if (!A) return;
+    A.acc += dt;
+    while (A.acc >= 1) { A.acc -= 1; battleStep(G); }
+  };
+  // 點怪物：額外傷害（隊伍最高攻擊的一半）
+  ET.advTap = function (G, i) {
+    const A = G.adv, B = A && A.battle, e = B && B.enemies[i];
+    if (!e || e.hp <= 0) return { ok: false };
+    let top = 0; for (const h of A.heroes) if (h.hp > 0) top = Math.max(top, ET.heroStats(G, h).atk);
+    const dmg = Math.max(1, Math.round(top * 0.5 - e.def));
+    strike(G, e, dmg, 0); G.stats.taps++;
+    if (B.enemies.every(x => x.hp <= 0)) win(G);
+    return { ok: true, dmg };
+  };
+
+  // ---------- 存檔 ----------
+  const num = (x, d, lo, hi) => (typeof x === 'number' && isFinite(x) && x >= (lo == null ? 0 : lo) && (hi == null || x <= hi)) ? x : d;
+  ET.sanitizeAdv = function (o, G) {
+    const A = ET.newAdv();
+    if (!o || typeof o !== 'object') return A;
+    const okItem = (g, slot) => g && ET.isGear(g.s) && (!slot || ET.SERIES[g.s].gear === slot) && Number.isInteger(g.t) && g.t >= 1 && g.t <= MAXT;
+    const newId = () => G.nextId++;
+    A.nextId = Math.max(1, Math.floor(num(o.nextId, 1, 1)));
+    if (Array.isArray(o.heroes)) {
+      for (const x of o.heroes.slice(0, AD.partyMax)) {
+        if (!x || !ET.ROLES[x.role] || A.heroes.some(h => h.role === x.role)) continue;
+        const h = { id: Number.isInteger(x.id) && x.id > 0 ? x.id : A.nextId++, role: x.role, lvl: Math.min(AD.heroMaxLv, Math.max(1, Math.floor(num(x.lvl, 1, 1)))), xp: num(x.xp, 0), hp: 0, gear: { weapon: null, armor: null, trinket: null } };
+        A.nextId = Math.max(A.nextId, h.id + 1);
+        for (const slot of SLOTS) { const g = x.gear && x.gear[slot]; if (okItem(g, slot)) { h.gear[slot] = { id: Number.isInteger(g.id) && g.id > 0 ? g.id : newId(), s: g.s, t: g.t }; G.nextId = Math.max(G.nextId, h.gear[slot].id + 1); } }
+        A.heroes.push(h);
+      }
+    }
+    A.area = Math.min(ET.AREAS.length, Math.max(1, Math.floor(num(o.area, 1, 1))));
+    for (let a = 1; a <= ET.AREAS.length; a++) {
+      A.open[a] = a === 1 || !!(o.open && o.open[a]);
+      A.cleared[a] = !!(o.cleared && o.cleared[a]);
+      A.reach[a] = Math.min(AD.stages, Math.max(1, Math.floor(num(o.reach && o.reach[a], 1, 1))));
+    }
+    if (!A.open[A.area]) A.area = 1;
+    A.stage = Math.min(AD.stages, Math.max(1, Math.floor(num(o.stage, 1, 1))));
+    A.recover = Math.floor(num(o.recover, 0, 0, AD.recoverSec));
+    A.hold = Math.floor(num(o.hold, 0, 0, 20));
+    for (const k of ['blade', 'plate', 'charm']) if (o.forged && o.forged[k]) A.forged[k] = Math.floor(num(o.forged[k], 0));
+    if (o.food && typeof o.food === 'object') {
+      if (Array.isArray(o.food.queue)) for (const f of o.food.queue.slice(0, ET.FOOD_QUEUE)) if (ET.canPack(f) && Number.isInteger(f.t)) { A.food.queue.push({ id: Number.isInteger(f.id) && f.id > 0 ? f.id : newId(), s: f.s, t: f.t }); }
+      const f = o.food.act;
+      if (ET.canPack(f) && Number.isInteger(f.t)) { A.food.act = { id: Number.isInteger(f.id) && f.id > 0 ? f.id : newId(), s: f.s, t: f.t }; A.food.left = Math.floor(num(o.food.left, 1, 1, ET.FOOD_SEC(f.t))); }
+    }
+    if (o.stats && typeof o.stats === 'object') for (const k of Object.keys(A.stats)) A.stats[k] = num(o.stats[k], 0);
+    // 血量：存的 hp 若不合理就補滿
+    A.heroes.forEach((h, i) => { const x = Array.isArray(o.heroes) ? o.heroes.find(y => y && y.role === h.role) : null; const m = maxHp({ adv: A }, h); h.hp = x && typeof x.hp === 'number' && isFinite(x.hp) && x.hp >= 0 ? Math.min(m, Math.round(x.hp)) : m; });
+    G.nextId = Math.max(G.nextId, A.nextId);
+    return A;
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
 // UI：只負責畫面與輸入，所有規則都在 core.js。
 (function () {
   'use strict';
@@ -1166,7 +1565,8 @@ button{font:inherit;color:inherit;cursor:pointer}
     merge: t => beep(400 + t * 90, .18, 'triangle', .07, 700 + t * 120),
     sell: () => beep(880, .1, 'sine', .05, 1320),
     buy: () => beep(500, .22, 'triangle', .06, 1000),
-    unlock: () => beep(600, .35, 'triangle', .07, 1200)
+    unlock: () => beep(600, .35, 'triangle', .07, 1200),
+    lose: () => beep(220, .4, 'sawtooth', .05, 110)
   };
   function vib(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { } }
 
@@ -1187,10 +1587,10 @@ button{font:inherit;color:inherit;cursor:pointer}
     toastEl.textContent = t; toastEl.classList.add('on');
     clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 1800);
   }
-  function floatAt(el, text, dy) {
+  function floatAt(el, text, dy, cls) {
     if (!el) return;
     const r = el.getBoundingClientRect(), f = document.createElement('div');
-    f.className = 'float'; f.textContent = text;
+    f.className = 'float' + (cls ? ' ' + cls : ''); f.textContent = text;
     f.style.left = (r.left + r.width / 2) + 'px'; f.style.top = (r.top + r.height / 2 + (dy || 0)) + 'px';
     $('#fx').appendChild(f); setTimeout(() => f.remove(), 950);
   }
@@ -1213,10 +1613,11 @@ button{font:inherit;color:inherit;cursor:pointer}
     const items = [
       { id: 'garden', emoji: '🌱', name: '花園' },
       { id: 'merge', emoji: '⚗️', name: '合成', locked: !G.unlocked.merge, need: '湊到兩個一樣的東西就解鎖' },
-      { id: 'shop', emoji: '🏪', name: '商店', locked: !G.unlocked.shop, need: '合成出第一個 2 階物品（例如 🍞）就開張' }
+      { id: 'shop', emoji: '🏪', name: '商店', locked: !G.unlocked.shop, need: '合成出第一個 2 階物品（例如 🍞）就開張' },
+      { id: 'quest', emoji: '⚔️', name: '冒險', locked: !G.unlocked.quest, need: '商店開張後，累計賺到 💰300 就開放' }
     ].concat(ET.LOCKED_TABS.map(t => Object.assign({ locked: true }, t)));
     $('#tabs').innerHTML = items.map(t =>
-      `<button class="tab${t.locked ? ' lock' : ''}${tab === t.id ? ' on' : ''}" data-t="${t.id}"><b>${t.emoji}</b><small>${t.name}</small>${t.id === 'garden' || t.id === 'merge' || t.id === 'shop' ? '<i class="dot" hidden></i>' : ''}</button>`).join('');
+      `<button class="tab${t.locked ? ' lock' : ''}${tab === t.id ? ' on' : ''}" data-t="${t.id}"><b>${t.emoji}</b><small>${t.name}</small>${t.id === 'garden' || t.id === 'merge' || t.id === 'shop' || t.id === 'quest' ? '<i class="dot" hidden></i>' : ''}</button>`).join('');
     $('#tabs').querySelectorAll('.tab').forEach((el, i) => {
       el.onclick = () => {
         const t = items[i];
@@ -1225,12 +1626,12 @@ button{font:inherit;color:inherit;cursor:pointer}
       };
     });
   }
-  function showView(id) { for (const v of ['garden', 'merge', 'shop']) $('#v-' + v).hidden = v !== id; }
+  function showView(id) { for (const v of ['garden', 'merge', 'shop', 'quest']) $('#v-' + v).hidden = v !== id; }
   function setTab(id) {
     cancelDrag();
     tab = id; selId = null;
     showView(id);
-    buildTabs(); boardKey = ''; laneIds = ''; shelfSig = ''; renderBoard(true); renderShop(); resize();
+    buildTabs(); boardKey = ''; laneIds = ''; shelfSig = ''; advEls.areaSig = advEls.mobSig = advEls.heroSig = advEls.info = ''; renderBoard(true); renderShop(); renderQuest(); resize();
   }
   function hasPairUI() {
     const c = {};
@@ -1577,6 +1978,176 @@ button{font:inherit;color:inherit;cursor:pointer}
     });
   }
 
+  // ---------- 冒險 ----------
+  const advEls = { areaSig: '', mobSig: '', heroSig: '', mobEls: [], heroEls: [], info: '' };
+  const gearName = g => `${SER[g.s].tiers[g.t - 1]} ${SER[g.s].names[g.t - 1]}`;
+  const gearStat = (s, t) => { const b = ET.GEAR[s], m = ET.gearMul(t), p = []; if (b.atk) p.push('攻擊 +' + (b.atk * m).toFixed(1)); if (b.def) p.push('防禦 +' + (b.def * m).toFixed(1)); if (b.hp) p.push('血量 +' + Math.round(b.hp * m)); return p.join('、'); };
+  const durTxt = s => s >= 60 ? Math.floor(s / 60) + ' 分' + (s % 60 ? ' ' + (s % 60) + ' 秒' : '') : s + ' 秒';
+  const seriesOfSlot = slot => Object.keys(SER).find(k => SER[k].gear === slot);
+  function foodText(s, t) {
+    const m = ET.FOOD[s] && ET.FOOD[s][t]; if (!m) return '';
+    const p = [], pc = v => Math.round(v * 100);
+    if (m.hp) p.push(`血量 +${pc(m.hp)}%`); if (m.atk) p.push(`攻擊 +${pc(m.atk)}%`); if (m.def) p.push(`防禦 +${pc(m.def)}%`);
+    if (m.regen) p.push(`每秒回血 +${m.regen}`); if (m.xp) p.push(`經驗 +${pc(m.xp)}%`);
+    return `${p.join('、')}（${durTxt(ET.FOOD_SEC(t))}）`;
+  }
+  // 盤上某系列的東西，依階數彙整：{ 階: [盤面索引…] }
+  function boardByTier(series) { const o = {}; G.board.forEach((it, i) => { if (it && it.s === series) (o[it.t] = o[it.t] || []).push(i); }); return o; }
+  function questDot() {
+    if (!G.adv) return false;
+    for (const h of G.adv.heroes) for (const slot of ET.SLOTS) if (!h.gear[slot] && G.board.some(it => it && SER[it.s].gear === slot)) return true;
+    return false;
+  }
+  function renderQuest() {
+    if (tab !== 'quest' || !G.adv) return;
+    const A = G.adv, Ar = ET.AREAS[A.area - 1], B = A.battle;
+    // 區域按鈕 + 10 關進度點
+    const reach = A.reach[A.area] || 1;
+    const asig = [A.area, A.stage, reach, !!A.cleared[A.area], ET.AREAS.map(a => A.open[a.id] ? 1 : 0).join('')].join('|');
+    if (asig !== advEls.areaSig) {
+      advEls.areaSig = asig;
+      $('#areas').innerHTML = ET.AREAS.map(a => `<button class="qarea${A.area === a.id ? ' on' : ''}${A.open[a.id] ? '' : ' lock'}" data-a="${a.id}"><b>${A.open[a.id] ? a.emoji : '🔒'}</b><small>${a.name}</small></button>`).join('');
+      let d = ''; for (let s = 1; s <= ET.ADV.stages; s++) d += `<i class="${(s < reach || A.cleared[A.area]) ? 'done' : ''}${s === A.stage ? ' cur' : ''}">${s === ET.ADV.stages ? '👑' : s}</i>`;
+      $('#stageDots').innerHTML = d;
+    }
+    // 怪物
+    const msig = B ? [A.area, A.stage, A.stats.stages, B.enemies.map(e => e.name + e.maxhp).join()].join(':') : (A.recover > 0 ? 'rest' : 'wait');
+    if (msig !== advEls.mobSig) {
+      advEls.mobSig = msig;
+      $('#mobs').innerHTML = B ? B.enemies.map((e, i) => `<button class="mob${A.stage === ET.ADV.stages && i === 0 ? ' boss' : ''}" data-i="${i}"><span class="me">${e.e}</span><span class="hpb"><i></i></span></button>`).join('') : `<div class="rest">${A.recover > 0 ? '💤 隊伍休息中…' : '…'}</div>`;
+      advEls.mobEls = Array.from($('#mobs').querySelectorAll('.mob'));
+    }
+    if (B) B.enemies.forEach((e, i) => { const el = advEls.mobEls[i]; if (!el) return; el.classList.toggle('dead', e.hp <= 0); el.querySelector('.hpb i').style.width = Math.max(0, e.hp / e.maxhp * 100) + '%'; });
+    // 英雄卡
+    const hsig = A.heroes.map(h => h.id + h.role + h.lvl + ET.SLOTS.map(sl => h.gear[sl] ? h.gear[sl].s + h.gear[sl].t : '-').join('')).join('|') + '|' + (A.heroes.length < ET.ADV.partyMax);
+    if (hsig !== advEls.heroSig) {
+      advEls.heroSig = hsig;
+      let h = A.heroes.map(x => `<button class="hero" data-id="${x.id}"><span class="hr">${ET.ROLES[x.role].emoji}</span><span class="hl">Lv.${x.lvl}</span><span class="hpb"><i></i></span><span class="hg">${ET.SLOTS.map(sl => `<u>${x.gear[sl] ? SER[x.gear[sl].s].tiers[x.gear[sl].t - 1] : '·'}</u>`).join('')}</span></button>`).join('');
+      if (A.heroes.length < ET.ADV.partyMax) h += `<button class="hero add"><b>＋</b>招募 💰${fmt(ET.recruitCost(G))}</button>`;
+      $('#heroes').innerHTML = h;
+      advEls.heroEls = Array.from($('#heroes').querySelectorAll('.hero:not(.add)'));
+    }
+    A.heroes.forEach((h, i) => { const el = advEls.heroEls[i]; if (!el) return; el.classList.toggle('down', h.hp <= 0); el.querySelector('.hpb i').style.width = Math.max(0, h.hp / ET.heroStats(G, h).hp * 100) + '%'; });
+    // 說明列
+    const p = [`${Ar.emoji} ${Ar.name} 第 ${A.stage}/${ET.ADV.stages} 關　過關 💰${ET.stageReward(A.area, A.stage)}`];
+    if (A.recover > 0) p.push(`💤 全滅了，${A.recover} 秒後復活`);
+    else if (A.hold > 0) p.push(`🔁 穩一穩：再贏 ${A.hold} 場才往上推`);
+    else if (A.food.act) p.push(`${tierEmoji(A.food.act.s, A.food.act.t)} 料理加成剩 ${durTxt(A.food.left)}`);
+    const info = p.join('<br>');
+    if (info !== advEls.info) { advEls.info = info; $('#qInfo').innerHTML = info; }
+  }
+  $('#areas').addEventListener('click', e => {
+    const b = e.target.closest('.qarea'); if (!b) return;
+    const r = ET.advGo(G, +b.dataset.a);
+    if (!r.ok) toast('🔒 打倒前一區的 Boss 才會開放');
+    advEls.areaSig = ''; advEls.mobSig = ''; renderQuest();
+  });
+  $('#mobs').addEventListener('pointerdown', e => {
+    const b = e.target.closest('.mob'); if (!b || modalOpen) return;
+    ET.advTap(G, +b.dataset.i); flush(); renderQuest(); renderTop();
+  });
+  $('#heroes').addEventListener('click', e => {
+    const b = e.target.closest('.hero'); if (!b || modalOpen) return;
+    if (b.classList.contains('add')) openRecruit(); else openHero(+b.dataset.id);
+  });
+  $('#bForge').addEventListener('click', () => { if (!modalOpen) openForge(); });
+  $('#bFood').addEventListener('click', () => { if (!modalOpen) openFood(); });
+  $('#bRecruit').addEventListener('click', () => { if (!modalOpen) openRecruit(); });
+  const afterAdv = () => { advEls.heroSig = ''; advEls.mobSig = ''; boardKey = ''; flush(); renderQuest(); renderTop(); };
+
+  function openHero(id) {
+    const A = G.adv, h = A.heroes.find(x => x.id === id); if (!h) return;
+    const R = ET.ROLES[h.role], st = ET.heroStats(G, h), need = ET.heroXpNeed(h.lvl);
+    let html = `<div class="big">${R.emoji}</div><h2>${R.name}　Lv.${h.lvl}</h2><p style="text-align:center">${R.note}</p>
+      <div class="hstats"><span>❤️ ${Math.max(0, Math.round(h.hp))}/${st.hp}</span><span>⚔️ ${st.atk.toFixed(1)}</span><span>🛡️ ${st.def.toFixed(1)}</span></div>
+      <div class="xpb"><i style="width:${h.lvl >= ET.ADV.heroMaxLv ? 100 : Math.min(100, h.xp / need * 100)}%"></i></div><p style="text-align:center">${h.lvl >= ET.ADV.heroMaxLv ? '已滿級' : `經驗 ${Math.floor(h.xp)}/${need}`}</p>`;
+    for (const slot of ET.SLOTS) {
+      const g = h.gear[slot], ser = seriesOfSlot(slot), by = boardByTier(ser);
+      html += `<div class="slotrow"><div class="sr"><b>${ET.SLOT_NAME[slot]}</b>`;
+      if (g) html += `<span class="gn">${gearName(g)}（+${g.t - 1}）<small>${gearStat(g.s, g.t)}</small></span><button class="mini" data-a="enh:${slot}">⬆️ 強化</button><button class="mini" data-a="off:${slot}">卸下</button>`;
+      else html += `<span class="gn" style="color:var(--dim)">空著</span>`;
+      html += `</div>`;
+      const ts = Object.keys(by).map(Number).sort((a, b) => a - b);
+      html += ts.length ? `<div class="cands">${ts.map(t => `<button class="cand" data-a="eq:${slot}:${t}">${SER[ser].tiers[t - 1]}<small>×${by[t].length}　${gearStat(ser, t).split('、')[0]}</small></button>`).join('')}</div>`
+        : `<p style="margin:6px 0 0;font-size:12px">合成盤上沒有${ET.SLOT_NAME[slot]}可以穿（到 🔨 鍛造，或在冒險中掉落）</p>`;
+      html += `</div>`;
+    }
+    html += `<p style="font-size:12px">點下面的裝備就穿上；穿著的那件，只要合成盤上有另一件一模一樣的，按「⬆️ 強化」就升一階。</p><button class="btn" data-a="close">關閉</button>`;
+    showModal(html, a => {
+      if (a === 'close') { closeModal(); return; }
+      const [op, slot, t] = a.split(':');
+      let msg = '';
+      if (op === 'eq') { const bi = (boardByTier(seriesOfSlot(slot))[+t] || [])[0]; if (bi != null) { ET.equip(G, bi, h.id); SND.buy(); } }
+      else if (op === 'off') { const r = ET.unequip(G, h.id, slot); if (!r.ok) msg = '合成盤滿了，放不下'; }
+      else if (op === 'enh') {
+        const g = h.gear[slot], r = ET.enhance(G, h.id, slot);
+        if (r.ok) { SND.merge(r.tier); msg = `⬆️ 強化成功！${gearName(h.gear[slot])}`; }
+        else if (r.why === 'none') msg = `合成盤上要再有一件 ${gearName(g)} 才能強化`;
+        else if (r.why === 'max') msg = '已經是最高階了';
+      }
+      if (msg) toast(msg);
+      afterAdv(); openHero(id);
+    });
+  }
+  function openForge() {
+    const A = G.adv; if (!A) return;
+    let h = `<h2>🔨 鍛造</h2><p>用金幣和花園的材料打造 1 階裝備，放進合成盤。兩件一樣的拖在一起會升階，再到英雄身上穿上或強化。</p>`;
+    for (const r of ET.FORGE) {
+      const ser = SER[r.s], cost = ET.forgeCost(G, r.id), can = ET.canForge(G, r.id);
+      const mats = Object.keys(r.mats).map(s => `${SER[s].tiers[0]}×${r.mats[s]}（你有 ${ET.matMass(G, s)}）`).join(' ');
+      h += `<div class="up"><div class="ue">${ser.tiers[0]}</div><div class="ub"><b>${ser.name}：${ser.names[0]}</b><small>${gearStat(r.s, 1)}<br>材料 ${mats}</small></div><button class="btn${can.ok ? '' : ' off'}" data-a="f:${r.id}">💰${fmt(cost)}</button></div>`;
+    }
+    h += `<p style="font-size:12px">每鍛造一次，同一種的金幣價格 ×1.15。材料用的是合成盤上的東西，會先用掉低階的。</p><button class="btn ghost" data-a="close">關閉</button>`;
+    showModal(h, a => {
+      if (a === 'close') { closeModal(); return; }
+      const id = a.slice(2), r = ET.forge(G, id);
+      if (r.ok) { SND.merge(1); toast('🔨 鍛造完成，在合成盤上'); }
+      else if (r.why === 'coins') toast('💰 金幣不夠');
+      else if (r.why === 'mats') { const rec = ET.FORGE.find(x => x.id === id); toast(`材料不夠：${SER[r.need].tiers[0]} 要 ${rec.mats[r.need]}（現有 ${ET.matMass(G, r.need)}），去花園多種`); }
+      afterAdv(); openForge();
+    });
+  }
+  function openFood() {
+    const A = G.adv; if (!A) return;
+    const F = A.food, by = {};
+    G.board.forEach((it, i) => { if (ET.canPack(it)) { const k = it.s + ':' + it.t; (by[k] = by[k] || []).push(i); } });
+    const keys = Object.keys(by).sort((a, b) => { const [sa, ta] = a.split(':'), [sb, tb] = b.split(':'); return sa < sb ? -1 : sa > sb ? 1 : ta - tb; });
+    let h = `<h2>🍽️ 補給</h2><p>把 2 階以上的料理放進補給，冒險隊會依序吃掉，獲得加成（離線也一樣）。</p>`;
+    h += F.act ? `<p style="text-align:center;color:var(--text)">生效中：<b style="font-size:22px">${tierEmoji(F.act.s, F.act.t)}</b><br>${foodText(F.act.s, F.act.t).replace(/（.*）/, '')}　剩 ${durTxt(F.left)}</p>` : `<p style="text-align:center">目前沒有料理加成</p>`;
+    h += `<div class="foodq">${[0, 1, 2].map(i => F.queue[i] ? `<button class="on" data-a="un:${i}">${tierEmoji(F.queue[i].s, F.queue[i].t)}</button>` : `<button disabled>·</button>`).join('')}</div><p style="font-size:12px;margin-top:0">排隊中的料理（點一下取回合成盤）</p>`;
+    h += keys.length ? keys.map(k => { const [s, t] = k.split(':'); return `<div class="up"><div class="ue">${tierEmoji(s, +t)}</div><div class="ub"><b>${SER[s].names[t - 1]} ×${by[k].length}</b><small>${foodText(s, +t)}</small></div><button class="btn${F.queue.length >= ET.FOOD_QUEUE ? ' off' : ''}" data-a="pk:${k}">放進去</button></div>`; }).join('')
+      : `<p>合成盤上沒有可以帶的料理。把 🌾🍎 合成到 2 階以上（🍞 🧃…）就可以。</p>`;
+    h += `<button class="btn ghost" data-a="close">關閉</button>`;
+    showModal(h, a => {
+      if (a === 'close') { closeModal(); return; }
+      const [op, x, y] = a.split(':');
+      if (op === 'un') { const r = ET.unpackFood(G, +x); if (!r.ok) toast('合成盤滿了，放不下'); }
+      else if (op === 'pk') {
+        const bi = ((by[x + ':' + y]) || [])[0], r = bi == null ? { ok: false } : ET.packFood(G, bi);
+        if (!r.ok && r.why === 'full') toast('最多排 3 份料理');
+      }
+      afterAdv(); openFood();
+    });
+  }
+  function openRecruit() {
+    const A = G.adv; if (!A) return;
+    const cost = ET.recruitCost(G), owned = new Set(A.heroes.map(h => h.role));
+    let h = `<h2>👥 招募</h2><p>最多 4 位，每個職業只能有 1 位。目前用金幣招募（之後公會開放會改成公會招募）。</p>`;
+    if (A.heroes.length >= ET.ADV.partyMax) h += `<p style="text-align:center">隊伍已滿（4 位）</p>`;
+    else for (const k of Object.keys(ET.ROLES)) {
+      if (owned.has(k)) continue;
+      const R = ET.ROLES[k];
+      h += `<div class="up"><div class="ue">${R.emoji}</div><div class="ub"><b>${R.name}</b><small>${R.note}<br>血量 ${R.hp}　攻擊 ${R.atk}　防禦 ${R.def}</small></div><button class="btn${G.coins < cost ? ' off' : ''}" data-a="r:${k}">💰${fmt(cost)}</button></div>`;
+    }
+    h += `<button class="btn ghost" data-a="close">關閉</button>`;
+    showModal(h, a => {
+      if (a === 'close') { closeModal(); return; }
+      const r = ET.recruit(G, a.slice(2));
+      if (r.ok) { SND.unlock(); toast('👥 新夥伴加入了！'); } else if (r.why === 'coins') toast('💰 金幣不夠');
+      afterAdv(); if (r.ok) closeModal(); else openRecruit();
+    });
+  }
+
   // ---------- 頂部 ----------
   let lastCoins = -1, hintLast = '';
   function renderTop() {
@@ -1587,6 +2158,7 @@ button{font:inherit;color:inherit;cursor:pointer}
     const tabs = $('#tabs').children;
     if (tabs[0]) { const d = tabs[0].querySelector('.dot'); if (d) d.hidden = !(tab !== 'garden' && G.plots.some(ET.isRipe)); }
     if (tabs[1] && G.unlocked.merge) { const d = tabs[1].querySelector('.dot'); if (d) d.hidden = !(tab !== 'merge' && hasPairUI()); }
+    if (tabs[3] && G.unlocked.quest) { const d = tabs[3].querySelector('.dot'); if (d) d.hidden = !(tab !== 'quest' && questDot()); }
     if (tabs[2] && G.unlocked.shop) { const d = tabs[2].querySelector('.dot'); if (d) d.hidden = !(tab !== 'shop' && G.shop.custs.some(c => c.kind === 'thief' || !ET.canServe(G, c))); }
   }
 
@@ -1605,7 +2177,16 @@ button{font:inherit;color:inherit;cursor:pointer}
         }
         case 'sell': floatAt(sellEl, '+' + fmt(e.v) + ' 💰'); SND.sell(); break;
         case 'buy': case 'expand': SND.buy(); break;
-        case 'unlock': toast(e.tab === 'shop' ? '🏪 商店開張了！去商店把東西上架' : '⚗️ 合成台解鎖了！'); SND.unlock(); buildTabs(); break;
+        case 'unlock': toast(e.tab === 'shop' ? '🏪 商店開張了！去商店把東西上架' : e.tab === 'quest' ? '⚔️ 冒險開放了！先到冒險頁鍛造一把武器' : '⚗️ 合成台解鎖了！'); SND.unlock(); buildTabs(); break;
+        case 'hit': if (tab === 'quest' && G.adv) {
+          if (e.side === 'enemy') floatAt(advEls.mobEls[e.i], '-' + e.dmg, -6, 'dmg');
+          else floatAt(advEls.heroEls[G.adv.heroes.findIndex(h => h.id === e.hid)], '-' + e.dmg, -6, 'dmg');
+        } break;
+        case 'heal': if (tab === 'quest' && G.adv) floatAt(advEls.heroEls[G.adv.heroes.findIndex(h => h.id === e.hid)], '+' + e.v, -6, 'heal'); break;
+        case 'advwin': if (tab === 'quest') { floatAt($('#mobs'), '+💰' + fmt(e.coins), 0, 'gold'); SND.sell(); } break;
+        case 'advlose': if (tab === 'quest') { toast('💀 全滅了…退一關，休息一下再來'); SND.lose(); } break;
+        case 'drop': toast(`🎁 掉落 ${tierEmoji(e.s, e.tier)}，在合成盤上`); SND.unlock(); break;
+        case 'lvl': if (tab === 'quest' && G.adv) { const hh = G.adv.heroes.find(x => x.id === e.hid); if (hh) toast(`⬆️ ${ET.ROLES[hh.role].name} 升到 Lv.${e.lvl}`); } break;
         case 'sale': floatAt(tab === 'shop' && shelfEls[e.slot] ? shelfEls[e.slot] : $('#coins'), '+' + fmt(e.total) + ' 💰' + (e.tip ? ' 小費' : '')); SND.sell(); break;
         case 'lost': if (tab === 'shop') floatAt(laneEl, '😞'); break;
         case 'stolen': toast(`🦹 偷走了 ${tierEmoji(e.s, e.tier)}！下次點他趕走，或雇 🛎️ 店員`); break;
@@ -1689,6 +2270,7 @@ button{font:inherit;color:inherit;cursor:pointer}
     if (s.shopSales) h += `<p style="text-align:center">🏪 商店賣出 ${s.shopSales.toLocaleString()} 件，營收 💰${fmt(s.shopRevenue)}${s.shopLost ? `；${s.shopLost.toLocaleString()} 位客人沒買到就走了` : ''}${s.shopStolen ? `；被偷了 ${s.shopStolen} 件 🦹` : ''}</p>`;
     else if (G.unlocked.shop && s.shopLost) h += `<p style="text-align:center">🏪 貨架空了，${s.shopLost.toLocaleString()} 位客人沒買到就走了。雇 🛎️ 店員可以自動補貨。</p>`;
     if (s.earned) h += `<p style="text-align:center;font-size:18px;color:var(--text)"><b>總共賺了 💰${fmt(s.earned)}</b></p>`;
+    if (s.advStages) h += `<p style="text-align:center">⚔️ 冒險隊打了 ${s.advStages.toLocaleString()} 關，帶回 💰${fmt(s.advCoins)}${s.advDefeats ? `；全滅 ${s.advDefeats.toLocaleString()} 次` : ''}${s.advLevels ? `；英雄共升了 ${s.advLevels} 級` : ''}${s.advDrops ? `；掉了 ${s.advDrops} 件裝備 🎁` : ''}</p>`;
     if (s.capped) h += `<p style="text-align:center">離線最多累積 ${ET.offlineCapHours(G)} 小時，可以在 ⬆️ 升級提高。</p>`;
     h += '<button class="btn" data-a="ok">收下</button>';
     showModal(h, () => closeModal());
@@ -1709,7 +2291,7 @@ button{font:inherit;color:inherit;cursor:pointer}
   function resetUI() {
     cancelDrag();
     selId = null; plotEls = []; plotCache = []; seedKey = ''; boardKey = ''; hintLast = ''; lastCoins = -1; tab = 'garden';
-    laneIds = ''; shelfSig = ''; DM = G.unlocked.shop ? ET.demand(G) : [];
+    laneIds = ''; shelfSig = ''; advEls.areaSig = advEls.mobSig = advEls.heroSig = advEls.info = ''; DM = G.unlocked.shop ? ET.demand(G) : [];
     showView('garden');
     buildTabs(); buildPlots(); renderGarden(); renderTop();
   }
@@ -1727,7 +2309,7 @@ button{font:inherit;color:inherit;cursor:pointer}
     } else ET.tick(G, gap);
     flush();
     DM = G.unlocked.shop ? ET.demand(G) : [];
-    renderGarden(); renderBoard(); renderShop(); renderAuto(); renderTop();
+    renderGarden(); renderBoard(); renderShop(); renderQuest(); renderAuto(); renderTop();
     if (mergedCell >= 0) { const c = boardEl.children[mergedCell]; if (c) { c.classList.add('merged'); setTimeout(() => c.classList.remove('merged'), 360); } mergedCell = -1; }
     saveT += gap; if (saveT >= 10) { saveT = 0; save(); }
   }

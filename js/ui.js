@@ -40,7 +40,8 @@
     merge: t => beep(400 + t * 90, .18, 'triangle', .07, 700 + t * 120),
     sell: () => beep(880, .1, 'sine', .05, 1320),
     buy: () => beep(500, .22, 'triangle', .06, 1000),
-    unlock: () => beep(600, .35, 'triangle', .07, 1200)
+    unlock: () => beep(600, .35, 'triangle', .07, 1200),
+    lose: () => beep(220, .4, 'sawtooth', .05, 110)
   };
   function vib(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { } }
 
@@ -61,10 +62,10 @@
     toastEl.textContent = t; toastEl.classList.add('on');
     clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 1800);
   }
-  function floatAt(el, text, dy) {
+  function floatAt(el, text, dy, cls) {
     if (!el) return;
     const r = el.getBoundingClientRect(), f = document.createElement('div');
-    f.className = 'float'; f.textContent = text;
+    f.className = 'float' + (cls ? ' ' + cls : ''); f.textContent = text;
     f.style.left = (r.left + r.width / 2) + 'px'; f.style.top = (r.top + r.height / 2 + (dy || 0)) + 'px';
     $('#fx').appendChild(f); setTimeout(() => f.remove(), 950);
   }
@@ -87,10 +88,11 @@
     const items = [
       { id: 'garden', emoji: '🌱', name: '花園' },
       { id: 'merge', emoji: '⚗️', name: '合成', locked: !G.unlocked.merge, need: '湊到兩個一樣的東西就解鎖' },
-      { id: 'shop', emoji: '🏪', name: '商店', locked: !G.unlocked.shop, need: '合成出第一個 2 階物品（例如 🍞）就開張' }
+      { id: 'shop', emoji: '🏪', name: '商店', locked: !G.unlocked.shop, need: '合成出第一個 2 階物品（例如 🍞）就開張' },
+      { id: 'quest', emoji: '⚔️', name: '冒險', locked: !G.unlocked.quest, need: '商店開張後，累計賺到 💰300 就開放' }
     ].concat(ET.LOCKED_TABS.map(t => Object.assign({ locked: true }, t)));
     $('#tabs').innerHTML = items.map(t =>
-      `<button class="tab${t.locked ? ' lock' : ''}${tab === t.id ? ' on' : ''}" data-t="${t.id}"><b>${t.emoji}</b><small>${t.name}</small>${t.id === 'garden' || t.id === 'merge' || t.id === 'shop' ? '<i class="dot" hidden></i>' : ''}</button>`).join('');
+      `<button class="tab${t.locked ? ' lock' : ''}${tab === t.id ? ' on' : ''}" data-t="${t.id}"><b>${t.emoji}</b><small>${t.name}</small>${t.id === 'garden' || t.id === 'merge' || t.id === 'shop' || t.id === 'quest' ? '<i class="dot" hidden></i>' : ''}</button>`).join('');
     $('#tabs').querySelectorAll('.tab').forEach((el, i) => {
       el.onclick = () => {
         const t = items[i];
@@ -99,12 +101,12 @@
       };
     });
   }
-  function showView(id) { for (const v of ['garden', 'merge', 'shop']) $('#v-' + v).hidden = v !== id; }
+  function showView(id) { for (const v of ['garden', 'merge', 'shop', 'quest']) $('#v-' + v).hidden = v !== id; }
   function setTab(id) {
     cancelDrag();
     tab = id; selId = null;
     showView(id);
-    buildTabs(); boardKey = ''; laneIds = ''; shelfSig = ''; renderBoard(true); renderShop(); resize();
+    buildTabs(); boardKey = ''; laneIds = ''; shelfSig = ''; advEls.areaSig = advEls.mobSig = advEls.heroSig = advEls.info = ''; renderBoard(true); renderShop(); renderQuest(); resize();
   }
   function hasPairUI() {
     const c = {};
@@ -451,6 +453,176 @@
     });
   }
 
+  // ---------- 冒險 ----------
+  const advEls = { areaSig: '', mobSig: '', heroSig: '', mobEls: [], heroEls: [], info: '' };
+  const gearName = g => `${SER[g.s].tiers[g.t - 1]} ${SER[g.s].names[g.t - 1]}`;
+  const gearStat = (s, t) => { const b = ET.GEAR[s], m = ET.gearMul(t), p = []; if (b.atk) p.push('攻擊 +' + (b.atk * m).toFixed(1)); if (b.def) p.push('防禦 +' + (b.def * m).toFixed(1)); if (b.hp) p.push('血量 +' + Math.round(b.hp * m)); return p.join('、'); };
+  const durTxt = s => s >= 60 ? Math.floor(s / 60) + ' 分' + (s % 60 ? ' ' + (s % 60) + ' 秒' : '') : s + ' 秒';
+  const seriesOfSlot = slot => Object.keys(SER).find(k => SER[k].gear === slot);
+  function foodText(s, t) {
+    const m = ET.FOOD[s] && ET.FOOD[s][t]; if (!m) return '';
+    const p = [], pc = v => Math.round(v * 100);
+    if (m.hp) p.push(`血量 +${pc(m.hp)}%`); if (m.atk) p.push(`攻擊 +${pc(m.atk)}%`); if (m.def) p.push(`防禦 +${pc(m.def)}%`);
+    if (m.regen) p.push(`每秒回血 +${m.regen}`); if (m.xp) p.push(`經驗 +${pc(m.xp)}%`);
+    return `${p.join('、')}（${durTxt(ET.FOOD_SEC(t))}）`;
+  }
+  // 盤上某系列的東西，依階數彙整：{ 階: [盤面索引…] }
+  function boardByTier(series) { const o = {}; G.board.forEach((it, i) => { if (it && it.s === series) (o[it.t] = o[it.t] || []).push(i); }); return o; }
+  function questDot() {
+    if (!G.adv) return false;
+    for (const h of G.adv.heroes) for (const slot of ET.SLOTS) if (!h.gear[slot] && G.board.some(it => it && SER[it.s].gear === slot)) return true;
+    return false;
+  }
+  function renderQuest() {
+    if (tab !== 'quest' || !G.adv) return;
+    const A = G.adv, Ar = ET.AREAS[A.area - 1], B = A.battle;
+    // 區域按鈕 + 10 關進度點
+    const reach = A.reach[A.area] || 1;
+    const asig = [A.area, A.stage, reach, !!A.cleared[A.area], ET.AREAS.map(a => A.open[a.id] ? 1 : 0).join('')].join('|');
+    if (asig !== advEls.areaSig) {
+      advEls.areaSig = asig;
+      $('#areas').innerHTML = ET.AREAS.map(a => `<button class="qarea${A.area === a.id ? ' on' : ''}${A.open[a.id] ? '' : ' lock'}" data-a="${a.id}"><b>${A.open[a.id] ? a.emoji : '🔒'}</b><small>${a.name}</small></button>`).join('');
+      let d = ''; for (let s = 1; s <= ET.ADV.stages; s++) d += `<i class="${(s < reach || A.cleared[A.area]) ? 'done' : ''}${s === A.stage ? ' cur' : ''}">${s === ET.ADV.stages ? '👑' : s}</i>`;
+      $('#stageDots').innerHTML = d;
+    }
+    // 怪物
+    const msig = B ? [A.area, A.stage, A.stats.stages, B.enemies.map(e => e.name + e.maxhp).join()].join(':') : (A.recover > 0 ? 'rest' : 'wait');
+    if (msig !== advEls.mobSig) {
+      advEls.mobSig = msig;
+      $('#mobs').innerHTML = B ? B.enemies.map((e, i) => `<button class="mob${A.stage === ET.ADV.stages && i === 0 ? ' boss' : ''}" data-i="${i}"><span class="me">${e.e}</span><span class="hpb"><i></i></span></button>`).join('') : `<div class="rest">${A.recover > 0 ? '💤 隊伍休息中…' : '…'}</div>`;
+      advEls.mobEls = Array.from($('#mobs').querySelectorAll('.mob'));
+    }
+    if (B) B.enemies.forEach((e, i) => { const el = advEls.mobEls[i]; if (!el) return; el.classList.toggle('dead', e.hp <= 0); el.querySelector('.hpb i').style.width = Math.max(0, e.hp / e.maxhp * 100) + '%'; });
+    // 英雄卡
+    const hsig = A.heroes.map(h => h.id + h.role + h.lvl + ET.SLOTS.map(sl => h.gear[sl] ? h.gear[sl].s + h.gear[sl].t : '-').join('')).join('|') + '|' + (A.heroes.length < ET.ADV.partyMax);
+    if (hsig !== advEls.heroSig) {
+      advEls.heroSig = hsig;
+      let h = A.heroes.map(x => `<button class="hero" data-id="${x.id}"><span class="hr">${ET.ROLES[x.role].emoji}</span><span class="hl">Lv.${x.lvl}</span><span class="hpb"><i></i></span><span class="hg">${ET.SLOTS.map(sl => `<u>${x.gear[sl] ? SER[x.gear[sl].s].tiers[x.gear[sl].t - 1] : '·'}</u>`).join('')}</span></button>`).join('');
+      if (A.heroes.length < ET.ADV.partyMax) h += `<button class="hero add"><b>＋</b>招募 💰${fmt(ET.recruitCost(G))}</button>`;
+      $('#heroes').innerHTML = h;
+      advEls.heroEls = Array.from($('#heroes').querySelectorAll('.hero:not(.add)'));
+    }
+    A.heroes.forEach((h, i) => { const el = advEls.heroEls[i]; if (!el) return; el.classList.toggle('down', h.hp <= 0); el.querySelector('.hpb i').style.width = Math.max(0, h.hp / ET.heroStats(G, h).hp * 100) + '%'; });
+    // 說明列
+    const p = [`${Ar.emoji} ${Ar.name} 第 ${A.stage}/${ET.ADV.stages} 關　過關 💰${ET.stageReward(A.area, A.stage)}`];
+    if (A.recover > 0) p.push(`💤 全滅了，${A.recover} 秒後復活`);
+    else if (A.hold > 0) p.push(`🔁 穩一穩：再贏 ${A.hold} 場才往上推`);
+    else if (A.food.act) p.push(`${tierEmoji(A.food.act.s, A.food.act.t)} 料理加成剩 ${durTxt(A.food.left)}`);
+    const info = p.join('<br>');
+    if (info !== advEls.info) { advEls.info = info; $('#qInfo').innerHTML = info; }
+  }
+  $('#areas').addEventListener('click', e => {
+    const b = e.target.closest('.qarea'); if (!b) return;
+    const r = ET.advGo(G, +b.dataset.a);
+    if (!r.ok) toast('🔒 打倒前一區的 Boss 才會開放');
+    advEls.areaSig = ''; advEls.mobSig = ''; renderQuest();
+  });
+  $('#mobs').addEventListener('pointerdown', e => {
+    const b = e.target.closest('.mob'); if (!b || modalOpen) return;
+    ET.advTap(G, +b.dataset.i); flush(); renderQuest(); renderTop();
+  });
+  $('#heroes').addEventListener('click', e => {
+    const b = e.target.closest('.hero'); if (!b || modalOpen) return;
+    if (b.classList.contains('add')) openRecruit(); else openHero(+b.dataset.id);
+  });
+  $('#bForge').addEventListener('click', () => { if (!modalOpen) openForge(); });
+  $('#bFood').addEventListener('click', () => { if (!modalOpen) openFood(); });
+  $('#bRecruit').addEventListener('click', () => { if (!modalOpen) openRecruit(); });
+  const afterAdv = () => { advEls.heroSig = ''; advEls.mobSig = ''; boardKey = ''; flush(); renderQuest(); renderTop(); };
+
+  function openHero(id) {
+    const A = G.adv, h = A.heroes.find(x => x.id === id); if (!h) return;
+    const R = ET.ROLES[h.role], st = ET.heroStats(G, h), need = ET.heroXpNeed(h.lvl);
+    let html = `<div class="big">${R.emoji}</div><h2>${R.name}　Lv.${h.lvl}</h2><p style="text-align:center">${R.note}</p>
+      <div class="hstats"><span>❤️ ${Math.max(0, Math.round(h.hp))}/${st.hp}</span><span>⚔️ ${st.atk.toFixed(1)}</span><span>🛡️ ${st.def.toFixed(1)}</span></div>
+      <div class="xpb"><i style="width:${h.lvl >= ET.ADV.heroMaxLv ? 100 : Math.min(100, h.xp / need * 100)}%"></i></div><p style="text-align:center">${h.lvl >= ET.ADV.heroMaxLv ? '已滿級' : `經驗 ${Math.floor(h.xp)}/${need}`}</p>`;
+    for (const slot of ET.SLOTS) {
+      const g = h.gear[slot], ser = seriesOfSlot(slot), by = boardByTier(ser);
+      html += `<div class="slotrow"><div class="sr"><b>${ET.SLOT_NAME[slot]}</b>`;
+      if (g) html += `<span class="gn">${gearName(g)}（+${g.t - 1}）<small>${gearStat(g.s, g.t)}</small></span><button class="mini" data-a="enh:${slot}">⬆️ 強化</button><button class="mini" data-a="off:${slot}">卸下</button>`;
+      else html += `<span class="gn" style="color:var(--dim)">空著</span>`;
+      html += `</div>`;
+      const ts = Object.keys(by).map(Number).sort((a, b) => a - b);
+      html += ts.length ? `<div class="cands">${ts.map(t => `<button class="cand" data-a="eq:${slot}:${t}">${SER[ser].tiers[t - 1]}<small>×${by[t].length}　${gearStat(ser, t).split('、')[0]}</small></button>`).join('')}</div>`
+        : `<p style="margin:6px 0 0;font-size:12px">合成盤上沒有${ET.SLOT_NAME[slot]}可以穿（到 🔨 鍛造，或在冒險中掉落）</p>`;
+      html += `</div>`;
+    }
+    html += `<p style="font-size:12px">點下面的裝備就穿上；穿著的那件，只要合成盤上有另一件一模一樣的，按「⬆️ 強化」就升一階。</p><button class="btn" data-a="close">關閉</button>`;
+    showModal(html, a => {
+      if (a === 'close') { closeModal(); return; }
+      const [op, slot, t] = a.split(':');
+      let msg = '';
+      if (op === 'eq') { const bi = (boardByTier(seriesOfSlot(slot))[+t] || [])[0]; if (bi != null) { ET.equip(G, bi, h.id); SND.buy(); } }
+      else if (op === 'off') { const r = ET.unequip(G, h.id, slot); if (!r.ok) msg = '合成盤滿了，放不下'; }
+      else if (op === 'enh') {
+        const g = h.gear[slot], r = ET.enhance(G, h.id, slot);
+        if (r.ok) { SND.merge(r.tier); msg = `⬆️ 強化成功！${gearName(h.gear[slot])}`; }
+        else if (r.why === 'none') msg = `合成盤上要再有一件 ${gearName(g)} 才能強化`;
+        else if (r.why === 'max') msg = '已經是最高階了';
+      }
+      if (msg) toast(msg);
+      afterAdv(); openHero(id);
+    });
+  }
+  function openForge() {
+    const A = G.adv; if (!A) return;
+    let h = `<h2>🔨 鍛造</h2><p>用金幣和花園的材料打造 1 階裝備，放進合成盤。兩件一樣的拖在一起會升階，再到英雄身上穿上或強化。</p>`;
+    for (const r of ET.FORGE) {
+      const ser = SER[r.s], cost = ET.forgeCost(G, r.id), can = ET.canForge(G, r.id);
+      const mats = Object.keys(r.mats).map(s => `${SER[s].tiers[0]}×${r.mats[s]}（你有 ${ET.matMass(G, s)}）`).join(' ');
+      h += `<div class="up"><div class="ue">${ser.tiers[0]}</div><div class="ub"><b>${ser.name}：${ser.names[0]}</b><small>${gearStat(r.s, 1)}<br>材料 ${mats}</small></div><button class="btn${can.ok ? '' : ' off'}" data-a="f:${r.id}">💰${fmt(cost)}</button></div>`;
+    }
+    h += `<p style="font-size:12px">每鍛造一次，同一種的金幣價格 ×1.15。材料用的是合成盤上的東西，會先用掉低階的。</p><button class="btn ghost" data-a="close">關閉</button>`;
+    showModal(h, a => {
+      if (a === 'close') { closeModal(); return; }
+      const id = a.slice(2), r = ET.forge(G, id);
+      if (r.ok) { SND.merge(1); toast('🔨 鍛造完成，在合成盤上'); }
+      else if (r.why === 'coins') toast('💰 金幣不夠');
+      else if (r.why === 'mats') { const rec = ET.FORGE.find(x => x.id === id); toast(`材料不夠：${SER[r.need].tiers[0]} 要 ${rec.mats[r.need]}（現有 ${ET.matMass(G, r.need)}），去花園多種`); }
+      afterAdv(); openForge();
+    });
+  }
+  function openFood() {
+    const A = G.adv; if (!A) return;
+    const F = A.food, by = {};
+    G.board.forEach((it, i) => { if (ET.canPack(it)) { const k = it.s + ':' + it.t; (by[k] = by[k] || []).push(i); } });
+    const keys = Object.keys(by).sort((a, b) => { const [sa, ta] = a.split(':'), [sb, tb] = b.split(':'); return sa < sb ? -1 : sa > sb ? 1 : ta - tb; });
+    let h = `<h2>🍽️ 補給</h2><p>把 2 階以上的料理放進補給，冒險隊會依序吃掉，獲得加成（離線也一樣）。</p>`;
+    h += F.act ? `<p style="text-align:center;color:var(--text)">生效中：<b style="font-size:22px">${tierEmoji(F.act.s, F.act.t)}</b><br>${foodText(F.act.s, F.act.t).replace(/（.*）/, '')}　剩 ${durTxt(F.left)}</p>` : `<p style="text-align:center">目前沒有料理加成</p>`;
+    h += `<div class="foodq">${[0, 1, 2].map(i => F.queue[i] ? `<button class="on" data-a="un:${i}">${tierEmoji(F.queue[i].s, F.queue[i].t)}</button>` : `<button disabled>·</button>`).join('')}</div><p style="font-size:12px;margin-top:0">排隊中的料理（點一下取回合成盤）</p>`;
+    h += keys.length ? keys.map(k => { const [s, t] = k.split(':'); return `<div class="up"><div class="ue">${tierEmoji(s, +t)}</div><div class="ub"><b>${SER[s].names[t - 1]} ×${by[k].length}</b><small>${foodText(s, +t)}</small></div><button class="btn${F.queue.length >= ET.FOOD_QUEUE ? ' off' : ''}" data-a="pk:${k}">放進去</button></div>`; }).join('')
+      : `<p>合成盤上沒有可以帶的料理。把 🌾🍎 合成到 2 階以上（🍞 🧃…）就可以。</p>`;
+    h += `<button class="btn ghost" data-a="close">關閉</button>`;
+    showModal(h, a => {
+      if (a === 'close') { closeModal(); return; }
+      const [op, x, y] = a.split(':');
+      if (op === 'un') { const r = ET.unpackFood(G, +x); if (!r.ok) toast('合成盤滿了，放不下'); }
+      else if (op === 'pk') {
+        const bi = ((by[x + ':' + y]) || [])[0], r = bi == null ? { ok: false } : ET.packFood(G, bi);
+        if (!r.ok && r.why === 'full') toast('最多排 3 份料理');
+      }
+      afterAdv(); openFood();
+    });
+  }
+  function openRecruit() {
+    const A = G.adv; if (!A) return;
+    const cost = ET.recruitCost(G), owned = new Set(A.heroes.map(h => h.role));
+    let h = `<h2>👥 招募</h2><p>最多 4 位，每個職業只能有 1 位。目前用金幣招募（之後公會開放會改成公會招募）。</p>`;
+    if (A.heroes.length >= ET.ADV.partyMax) h += `<p style="text-align:center">隊伍已滿（4 位）</p>`;
+    else for (const k of Object.keys(ET.ROLES)) {
+      if (owned.has(k)) continue;
+      const R = ET.ROLES[k];
+      h += `<div class="up"><div class="ue">${R.emoji}</div><div class="ub"><b>${R.name}</b><small>${R.note}<br>血量 ${R.hp}　攻擊 ${R.atk}　防禦 ${R.def}</small></div><button class="btn${G.coins < cost ? ' off' : ''}" data-a="r:${k}">💰${fmt(cost)}</button></div>`;
+    }
+    h += `<button class="btn ghost" data-a="close">關閉</button>`;
+    showModal(h, a => {
+      if (a === 'close') { closeModal(); return; }
+      const r = ET.recruit(G, a.slice(2));
+      if (r.ok) { SND.unlock(); toast('👥 新夥伴加入了！'); } else if (r.why === 'coins') toast('💰 金幣不夠');
+      afterAdv(); if (r.ok) closeModal(); else openRecruit();
+    });
+  }
+
   // ---------- 頂部 ----------
   let lastCoins = -1, hintLast = '';
   function renderTop() {
@@ -461,6 +633,7 @@
     const tabs = $('#tabs').children;
     if (tabs[0]) { const d = tabs[0].querySelector('.dot'); if (d) d.hidden = !(tab !== 'garden' && G.plots.some(ET.isRipe)); }
     if (tabs[1] && G.unlocked.merge) { const d = tabs[1].querySelector('.dot'); if (d) d.hidden = !(tab !== 'merge' && hasPairUI()); }
+    if (tabs[3] && G.unlocked.quest) { const d = tabs[3].querySelector('.dot'); if (d) d.hidden = !(tab !== 'quest' && questDot()); }
     if (tabs[2] && G.unlocked.shop) { const d = tabs[2].querySelector('.dot'); if (d) d.hidden = !(tab !== 'shop' && G.shop.custs.some(c => c.kind === 'thief' || !ET.canServe(G, c))); }
   }
 
@@ -479,7 +652,16 @@
         }
         case 'sell': floatAt(sellEl, '+' + fmt(e.v) + ' 💰'); SND.sell(); break;
         case 'buy': case 'expand': SND.buy(); break;
-        case 'unlock': toast(e.tab === 'shop' ? '🏪 商店開張了！去商店把東西上架' : '⚗️ 合成台解鎖了！'); SND.unlock(); buildTabs(); break;
+        case 'unlock': toast(e.tab === 'shop' ? '🏪 商店開張了！去商店把東西上架' : e.tab === 'quest' ? '⚔️ 冒險開放了！先到冒險頁鍛造一把武器' : '⚗️ 合成台解鎖了！'); SND.unlock(); buildTabs(); break;
+        case 'hit': if (tab === 'quest' && G.adv) {
+          if (e.side === 'enemy') floatAt(advEls.mobEls[e.i], '-' + e.dmg, -6, 'dmg');
+          else floatAt(advEls.heroEls[G.adv.heroes.findIndex(h => h.id === e.hid)], '-' + e.dmg, -6, 'dmg');
+        } break;
+        case 'heal': if (tab === 'quest' && G.adv) floatAt(advEls.heroEls[G.adv.heroes.findIndex(h => h.id === e.hid)], '+' + e.v, -6, 'heal'); break;
+        case 'advwin': if (tab === 'quest') { floatAt($('#mobs'), '+💰' + fmt(e.coins), 0, 'gold'); SND.sell(); } break;
+        case 'advlose': if (tab === 'quest') { toast('💀 全滅了…退一關，休息一下再來'); SND.lose(); } break;
+        case 'drop': toast(`🎁 掉落 ${tierEmoji(e.s, e.tier)}，在合成盤上`); SND.unlock(); break;
+        case 'lvl': if (tab === 'quest' && G.adv) { const hh = G.adv.heroes.find(x => x.id === e.hid); if (hh) toast(`⬆️ ${ET.ROLES[hh.role].name} 升到 Lv.${e.lvl}`); } break;
         case 'sale': floatAt(tab === 'shop' && shelfEls[e.slot] ? shelfEls[e.slot] : $('#coins'), '+' + fmt(e.total) + ' 💰' + (e.tip ? ' 小費' : '')); SND.sell(); break;
         case 'lost': if (tab === 'shop') floatAt(laneEl, '😞'); break;
         case 'stolen': toast(`🦹 偷走了 ${tierEmoji(e.s, e.tier)}！下次點他趕走，或雇 🛎️ 店員`); break;
@@ -563,6 +745,7 @@
     if (s.shopSales) h += `<p style="text-align:center">🏪 商店賣出 ${s.shopSales.toLocaleString()} 件，營收 💰${fmt(s.shopRevenue)}${s.shopLost ? `；${s.shopLost.toLocaleString()} 位客人沒買到就走了` : ''}${s.shopStolen ? `；被偷了 ${s.shopStolen} 件 🦹` : ''}</p>`;
     else if (G.unlocked.shop && s.shopLost) h += `<p style="text-align:center">🏪 貨架空了，${s.shopLost.toLocaleString()} 位客人沒買到就走了。雇 🛎️ 店員可以自動補貨。</p>`;
     if (s.earned) h += `<p style="text-align:center;font-size:18px;color:var(--text)"><b>總共賺了 💰${fmt(s.earned)}</b></p>`;
+    if (s.advStages) h += `<p style="text-align:center">⚔️ 冒險隊打了 ${s.advStages.toLocaleString()} 關，帶回 💰${fmt(s.advCoins)}${s.advDefeats ? `；全滅 ${s.advDefeats.toLocaleString()} 次` : ''}${s.advLevels ? `；英雄共升了 ${s.advLevels} 級` : ''}${s.advDrops ? `；掉了 ${s.advDrops} 件裝備 🎁` : ''}</p>`;
     if (s.capped) h += `<p style="text-align:center">離線最多累積 ${ET.offlineCapHours(G)} 小時，可以在 ⬆️ 升級提高。</p>`;
     h += '<button class="btn" data-a="ok">收下</button>';
     showModal(h, () => closeModal());
@@ -583,7 +766,7 @@
   function resetUI() {
     cancelDrag();
     selId = null; plotEls = []; plotCache = []; seedKey = ''; boardKey = ''; hintLast = ''; lastCoins = -1; tab = 'garden';
-    laneIds = ''; shelfSig = ''; DM = G.unlocked.shop ? ET.demand(G) : [];
+    laneIds = ''; shelfSig = ''; advEls.areaSig = advEls.mobSig = advEls.heroSig = advEls.info = ''; DM = G.unlocked.shop ? ET.demand(G) : [];
     showView('garden');
     buildTabs(); buildPlots(); renderGarden(); renderTop();
   }
@@ -601,7 +784,7 @@
     } else ET.tick(G, gap);
     flush();
     DM = G.unlocked.shop ? ET.demand(G) : [];
-    renderGarden(); renderBoard(); renderShop(); renderAuto(); renderTop();
+    renderGarden(); renderBoard(); renderShop(); renderQuest(); renderAuto(); renderTop();
     if (mergedCell >= 0) { const c = boardEl.children[mergedCell]; if (c) { c.classList.add('merged'); setTimeout(() => c.classList.remove('merged'), 360); } mergedCell = -1; }
     saveT += gap; if (saveT >= 10) { saveT = 0; save(); }
   }

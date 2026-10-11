@@ -300,7 +300,7 @@
     if (Array.isArray(o.heroes)) {
       for (const x of o.heroes.slice(0, AD.partyMax)) {
         if (!x || !ET.ROLES[x.role] || A.heroes.some(h => h.role === x.role)) continue;
-        const h = { id: Number.isInteger(x.id) && x.id > 0 ? x.id : A.nextId++, role: x.role, lvl: Math.floor(num(x.lvl, 1, 1, AD.heroMaxLv)), xp: num(x.xp, 0), hp: 0, gear: { weapon: null, armor: null, trinket: null } };
+        const h = { id: Number.isInteger(x.id) && x.id > 0 ? x.id : A.nextId++, role: x.role, lvl: Math.min(AD.heroMaxLv, Math.max(1, Math.floor(num(x.lvl, 1, 1)))), xp: num(x.xp, 0), hp: 0, gear: { weapon: null, armor: null, trinket: null } };
         A.nextId = Math.max(A.nextId, h.id + 1);
         for (const slot of SLOTS) { const g = x.gear && x.gear[slot]; if (okItem(g, slot)) { h.gear[slot] = { id: Number.isInteger(g.id) && g.id > 0 ? g.id : newId(), s: g.s, t: g.t }; G.nextId = Math.max(G.nextId, h.gear[slot].id + 1); } }
         A.heroes.push(h);

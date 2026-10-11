@@ -154,3 +154,57 @@ button{font:inherit;color:inherit;cursor:pointer}
 
 /* 寬螢幕（桌面瀏覽器、被拉得很高的視窗）：遊戲高度上限 800px，不要被拉成幾千像素高；手機不受影響 */
 @media (min-width:700px){:root{--H:min(100dvh,800px);--Hmax:800px}}
+
+/* ---- 冒險 ---- */
+#qTop{width:min(100%,420px);display:flex;flex-direction:column;gap:8px;flex:none}
+#areas{display:flex;gap:6px}
+.qarea{flex:1;min-width:0;border:2px solid var(--line);border-radius:14px;background:var(--panel);padding:5px 2px;display:flex;flex-direction:column;align-items:center;line-height:1.2;box-shadow:var(--shadow)}
+.qarea b{font-size:22px;font-weight:400}
+.qarea small{font-size:11px;color:var(--dim)}
+.qarea.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel))}
+.qarea.lock{opacity:.5}
+#stageDots{display:flex;gap:4px;justify-content:center}
+#stageDots i{flex:1;max-width:34px;height:20px;border-radius:7px;background:var(--cell);display:grid;place-items:center;font-style:normal;font-size:12px;color:var(--dim)}
+#stageDots i.done{background:color-mix(in srgb,var(--good) 55%,var(--cell))}
+#stageDots i.cur{outline:3px solid var(--accent);outline-offset:1px}
+#field{width:min(100%,420px);display:flex;flex-direction:column;gap:10px;flex:none;border-radius:20px;padding:12px;background:linear-gradient(var(--cell),var(--cell2));border:1px solid var(--line)}
+#mobs{display:flex;gap:8px;justify-content:center;min-height:104px;align-items:flex-end}
+#mobs .rest{align-self:center;color:var(--dim);font-size:14px}
+.mob{position:relative;width:78px;height:92px;border-radius:16px;border:2px solid var(--line);background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;box-shadow:var(--shadow);touch-action:manipulation}
+.mob .me{font-size:38px;line-height:1}
+.mob.boss{width:96px;height:104px;border-color:var(--bad)}
+.mob.boss .me{font-size:50px}
+.mob.dead{opacity:.25;filter:grayscale(1)}
+.hpb{display:block;width:80%;height:6px;border-radius:3px;background:#0003;overflow:hidden;margin-top:6px}
+.hpb i{display:block;height:100%;background:var(--bad);transition:width .15s}
+.hero .hpb i{background:var(--good)}
+#qInfo{text-align:center;font-size:13px;color:var(--dim);min-height:34px;line-height:1.45}
+#heroes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.hero{position:relative;border:2px solid var(--line);border-radius:16px;background:var(--panel);padding:6px 0 7px;display:flex;flex-direction:column;align-items:center;box-shadow:var(--shadow);min-width:0}
+.hero .hr{font-size:30px;line-height:1.1}
+.hero .hl{font-size:11px;color:var(--dim);font-weight:700}
+.hero .hg{display:flex;gap:3px;margin-top:5px}
+.hero .hg u{text-decoration:none;font-size:13px;width:19px;height:19px;border-radius:6px;background:var(--cell);display:grid;place-items:center;color:var(--dim)}
+.hero.down{filter:grayscale(1);opacity:.55}
+.hero.add{border-style:dashed;color:var(--dim);justify-content:center;gap:2px;font-size:11px;box-shadow:none}
+.hero.add b{font-size:26px;font-weight:400}
+#qBtns{display:flex;gap:8px;width:min(100%,420px);flex:none}
+#qBtns .btn{padding:11px 4px;font-size:14px}
+.slotrow{margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}
+.slotrow .sr{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.slotrow .sr b{min-width:40px}
+.slotrow .sr .gn{flex:1;min-width:0;font-size:14px;line-height:1.35}
+.slotrow .sr .gn small{display:block;font-size:12px;color:var(--dim)}
+.mini{padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:13px;font-weight:700}
+.cands{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.cand{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:4px 10px;font-size:22px;line-height:1.3}
+.cand small{font-size:11px;color:var(--dim);display:block;text-align:center}
+.hstats{display:flex;gap:14px;justify-content:center;font-weight:700;margin:6px 0}
+.xpb{height:8px;border-radius:4px;background:var(--cell);overflow:hidden}
+.xpb i{display:block;height:100%;background:#6ea8ff}
+.float.dmg{color:#e5484d}
+.float.heal{color:#2e9e4a}
+.float.gold{color:#c98600}
+.foodq{display:flex;gap:8px;margin:8px 0}
+.foodq button{flex:1;height:56px;border-radius:14px;border:2px dashed var(--line);background:var(--bg);font-size:28px}
+.foodq button.on{border-style:solid}

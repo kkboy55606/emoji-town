@@ -6,6 +6,8 @@
     "test": "node tests/core.test.js && node tests/pwa.test.js",
     "sim": "node tools/sim.js",
     "build:pwa": "node tools/build_pwa.js",
-    "build:artifact": "node tools/build_artifact.js"
+    "build:artifact": "node tools/build_artifact.js",
+    "ui": "node tools/ui_smoke.js",
+    "adv-sim": "node tools/adv_sim.js"
   }
 }

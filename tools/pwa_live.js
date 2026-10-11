@@ -28,6 +28,8 @@ const getJSON = url => new Promise((res, rej) => http.get(url, r => { let d = ''
     console.log('正式網址 PWA 驗證：' + URL_);
     const page = await ev(`({ https: location.protocol === 'https:', secure: isSecureContext, title: document.title, game: !!window.__town, coins: window.__town && window.__town.G.coins, plots: window.__town && window.__town.G.plots.length })`);
     check('HTTPS、安全環境，遊戲本體正常啟動', page.https && page.secure && page.game && page.title === '表情小鎮', JSON.stringify(page));
+    const quest = await ev(`(()=>{const t=document.querySelector('.tab[data-t="quest"]');return {tab:!!t, view:!!document.getElementById('v-quest'), core:!!(window.__town&&window.__town.ET.newAdv&&window.__town.ET.heroStats)}})()`);
+    check('線上版本含 S3 冒險（分頁、畫面、核心都在）', quest.tab && quest.view && quest.core, JSON.stringify(quest));
     let st = null;
     for (let i = 0; i < 60; i++) { st = await ev(`(async()=>{const r=await navigator.serviceWorker.getRegistration();const k=await caches.keys();return {active:!!(r&&r.active),state:r&&r.active&&r.active.state,scope:r&&r.scope,keys:k,n:k.length?(await (await caches.open(k[0])).keys()).length:0}})()`); if (st.active && st.n >= 7) break; await sleep(250); }
     check('service worker 註冊並啟用', st.active && st.state === 'activated' && st.scope === URL_, st.scope);

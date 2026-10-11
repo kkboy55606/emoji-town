@@ -405,6 +405,7 @@
     G.unlocked.quest = !!(o.unlocked && o.unlocked.quest);
     G.adv = G.unlocked.quest || o.adv ? ET.sanitizeAdv(o.adv, G) : null;
     if (G.adv && !G.unlocked.quest && G.adv.heroes.length) G.unlocked.quest = true;
+    if (G.adv && !G.unlocked.quest) G.adv = null;      // 還沒解鎖、也沒有英雄：不留空殼
     if (G.unlocked.quest && !G.adv) G.adv = ET.newAdv();
     if (G.adv && !G.adv.heroes.length && G.unlocked.quest) { const A = G.adv; A.heroes.push({ id: A.nextId++, role: 'sword', lvl: 1, xp: 0, hp: 0, gear: { weapon: null, armor: null, trinket: null } }); A.heroes[0].hp = ET.heroStats(G, A.heroes[0]).hp; }
     for (const k of ['seen', 'dex', 'hints']) if (o[k] && typeof o[k] === 'object') G[k] = Object.assign({}, o[k]);

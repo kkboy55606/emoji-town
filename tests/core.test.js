@@ -861,6 +861,344 @@ test('保留邏輯：成對但都被客人佔著的不合；只佔一個的，�
   assert.strictEqual(reserved.size, 1);
 });
 
+console.log('S3 冒險 + 裝備');
+const advGame = (roles, opts) => {
+  opts = opts || {};
+  const G = fresh(); G.unlocked.shop = true; G.unlocked.quest = true; G.adv = ET.newAdv(); G.rs = opts.rs || 4242;
+  for (const r of roles) { const h = { id: G.adv.nextId++, role: r, lvl: opts.lvl || 1, xp: 0, hp: 0, gear: { weapon: null, armor: null, trinket: null } }; h.hp = ET.heroStats(G, h).hp; G.adv.heroes.push(h); }
+  return G;
+};
+const wear = (G, h, slot, s, t) => { h.gear[slot] = { id: G.nextId++, s, t }; h.hp = ET.heroStats(G, h).hp; };
+const runAdv = (G, secs) => { for (let i = 0; i < secs; i++) { ET.advTick(G, 1); G.ev.length = 0; } };
+const near = (a, b, eps) => Math.abs(a - b) <= (eps || 1e-6);
+const strongTeam = (lvl, tier) => {
+  const G = advGame(['sword', 'knight', 'archer', 'elf'], { lvl });
+  for (const h of G.adv.heroes) { wear(G, h, 'weapon', 'blade', tier); wear(G, h, 'armor', 'plate', tier); wear(G, h, 'trinket', 'charm', tier); }
+  return G;
+};
+
+test('英雄屬性：職業底 × 等級（每級 +6%）+ 裝備（每高 1 階 ×1.7）× 料理加成', () => {
+  const G = advGame(['sword']), h = G.adv.heroes[0];
+  let s = ET.heroStats(G, h); assert.strictEqual(s.hp, 50); assert.ok(near(s.atk, 9) && near(s.def, 1));
+  h.lvl = 11; s = ET.heroStats(G, h); assert.strictEqual(s.hp, 80); assert.ok(near(s.atk, 14.4) && near(s.def, 1.6));
+  h.lvl = 1;
+  wear(G, h, 'weapon', 'blade', 1); assert.ok(near(ET.heroStats(G, h).atk, 14));
+  wear(G, h, 'weapon', 'blade', 2); assert.ok(near(ET.heroStats(G, h).atk, 9 + 5 * 1.7));
+  wear(G, h, 'weapon', 'blade', 3); assert.ok(near(ET.heroStats(G, h).atk, 9 + 5 * 2.89));
+  wear(G, h, 'armor', 'plate', 3); s = ET.heroStats(G, h); assert.ok(near(s.def, 1 + 3 * 2.89)); assert.strictEqual(s.hp, Math.round(50 + 15 * 2.89));
+  wear(G, h, 'trinket', 'charm', 1); assert.ok(near(ET.heroStats(G, h).atk, 9 + 5 * 2.89 + 1.5));
+  G.adv.food.act = { s: 'wheat', t: 4 }; assert.ok(near(ET.heroStats(G, h).atk, (9 + 5 * 2.89 + 1.5) * 1.12));
+  assert.strictEqual(ET.GEAR_MUL, 1.7);
+});
+test('冒險解鎖：商店開張後累計賺到 300 才開放，送一位劍士並通知 UI', () => {
+  const G = fresh(); G.unlocked.shop = true; G.stats.earned = 299;
+  ET.tick(G, 1); assert.ok(!G.unlocked.quest && !G.adv);
+  G.stats.earned = 300; ET.tick(G, 1);
+  assert.ok(G.unlocked.quest); assert.strictEqual(G.adv.heroes.length, 1); assert.strictEqual(G.adv.heroes[0].role, 'sword');
+  assert.ok(G.ev.some(e => e.t === 'unlock' && e.tab === 'quest'));
+  const H = fresh(); H.stats.earned = 999; ET.tick(H, 1); assert.ok(!H.unlocked.quest, '商店沒開張不解鎖');
+});
+test('招募：1 位免費（開局），之後 150 / 500 / 1500，不能重複職業、最多 4 位', () => {
+  const G = advGame(['sword']); assert.strictEqual(ET.recruitCost(G), 150);
+  assert.strictEqual(ET.recruit(G, 'knight').why, 'coins');
+  G.coins = 1e6;
+  assert.ok(ET.recruit(G, 'knight').ok); assert.strictEqual(G.coins, 1e6 - 150);
+  assert.strictEqual(ET.recruit(G, 'sword').why, 'dup'); assert.strictEqual(ET.recruit(G, 'nobody').why, 'dup');
+  assert.ok(ET.recruit(G, 'archer').ok); assert.strictEqual(G.coins, 1e6 - 150 - 500);
+  assert.ok(ET.recruit(G, 'elf').ok); assert.strictEqual(G.coins, 1e6 - 150 - 500 - 1500);
+  assert.strictEqual(ET.recruit(G, 'mage').why, 'full'); assert.strictEqual(G.adv.heroes.length, 4); assert.strictEqual(ET.recruitCost(G), Infinity);
+  assert.strictEqual(ET.recruit(fresh(), 'knight').why, 'locked');
+});
+test('鍛造：扣金幣與材料（低階先用）、產出 1 階裝備放上合成盤、金幣每次 ×1.15', () => {
+  const G = advGame(['sword']); G.coins = 1000;
+  give(G, 0, 'wood', 1); give(G, 1, 'wood', 2); give(G, 2, 'wood', 2);
+  assert.strictEqual(ET.forgeCost(G, 'blade'), 40);
+  const r = ET.forge(G, 'blade');
+  assert.ok(r.ok); assert.strictEqual(G.coins, 960);
+  assert.strictEqual(G.board[0].s, 'blade'); assert.strictEqual(G.board[0].t, 1);
+  assert.strictEqual(G.board[1], null); assert.strictEqual(G.board[2].s, 'wood');
+  assert.strictEqual(ET.forgeCost(G, 'blade'), Math.round(40 * 1.15)); assert.strictEqual(G.adv.forged.blade, 1);
+  assert.ok(G.dex['blade:1']);
+});
+test('鍛造：缺錢 / 缺材料 / 未解鎖 → 失敗且不扣東西；防具要木頭 4、飾品要花 2', () => {
+  const G = advGame(['sword']);
+  give(G, 0, 'wood', 1); give(G, 1, 'wood', 1);
+  assert.strictEqual(ET.forge(G, 'blade').why, 'coins'); G.coins = 500;
+  assert.strictEqual(ET.forge(G, 'plate').why, 'mats'); assert.strictEqual(ET.forge(G, 'plate').need, 'wood');
+  assert.strictEqual(ET.forge(G, 'charm').need, 'flower');
+  assert.strictEqual(G.coins, 500); assert.strictEqual(ET.count(G), 2);
+  give(G, 2, 'wood', 2); assert.ok(ET.forge(G, 'plate').ok, '木頭折合 4 夠了');
+  give(G, 5, 'flower', 1); give(G, 6, 'flower', 1); assert.ok(ET.forge(G, 'charm').ok);
+  assert.strictEqual(ET.forge(G, 'nope').why, 'locked'); assert.strictEqual(ET.forge(fresh(), 'blade').why, 'locked');
+});
+test('裝備：穿上、舊的換回同一格、血量上限提高時補上增加的部分', () => {
+  const G = advGame(['sword']), h = G.adv.heroes[0];
+  give(G, 5, 'plate', 1); give(G, 6, 'blade', 1); give(G, 7, 'blade', 2);
+  assert.ok(ET.equip(G, 5, h.id).ok);
+  assert.strictEqual(h.gear.armor.s, 'plate'); assert.strictEqual(G.board[5], null);
+  assert.strictEqual(h.hp, 65, '血量上限 50 → 65，現有血量一起補上');
+  ET.equip(G, 6, h.id); const r = ET.equip(G, 7, h.id);
+  assert.ok(r.swapped); assert.strictEqual(h.gear.weapon.t, 2); assert.strictEqual(G.board[7].s, 'blade'); assert.strictEqual(G.board[7].t, 1, '舊的換回同一格');
+  give(G, 8, 'wood', 1); assert.ok(!ET.equip(G, 8, h.id).ok, '不是裝備');
+  assert.ok(!ET.equip(G, 9, h.id).ok, '空格'); assert.ok(!ET.equip(G, 7, 999).ok, '沒有這位英雄');
+});
+test('卸下：放到第一個空格；盤面滿了失敗。血量不超過新上限', () => {
+  const G = advGame(['sword']), h = G.adv.heroes[0];
+  wear(G, h, 'armor', 'plate', 1); h.hp = 65;
+  assert.ok(ET.unequip(G, h.id, 'armor').ok); assert.strictEqual(G.board[0].s, 'plate'); assert.strictEqual(h.gear.armor, null); assert.strictEqual(h.hp, 50);
+  assert.strictEqual(ET.unequip(G, h.id, 'armor').why, 'empty');
+  wear(G, h, 'weapon', 'blade', 1); for (let i = 0; i < 30; i++) if (!G.board[i]) give(G, i, 'wood', 1);
+  assert.strictEqual(ET.unequip(G, h.id, 'weapon').why, 'full'); assert.ok(h.gear.weapon);
+});
+test('強化：吃掉盤上同系列同階的一件，身上這件 +1；沒有 / 滿階 / 空欄都失敗', () => {
+  const G = advGame(['sword']), h = G.adv.heroes[0];
+  wear(G, h, 'weapon', 'blade', 1);
+  assert.strictEqual(ET.enhance(G, h.id, 'weapon').why, 'none');
+  give(G, 3, 'blade', 2); assert.strictEqual(ET.enhance(G, h.id, 'weapon').why, 'none', '階數不同不算');
+  give(G, 4, 'blade', 1); const r = ET.enhance(G, h.id, 'weapon');
+  assert.ok(r.ok); assert.strictEqual(h.gear.weapon.t, 2); assert.strictEqual(G.board[4], null); assert.ok(G.board[3], '別的不動');
+  assert.strictEqual(ET.enhance(G, h.id, 'armor').why, 'empty');
+  wear(G, h, 'weapon', 'blade', 5); give(G, 6, 'blade', 5); assert.strictEqual(ET.enhance(G, h.id, 'weapon').why, 'max');
+});
+test('料理補給：只收 2 階以上的 🍞🥪🍔🎂🧃🥧🍷🏆，最多排 3 個，可取回', () => {
+  const G = advGame(['sword']);
+  give(G, 0, 'wheat', 1); give(G, 1, 'wheat', 2); give(G, 2, 'apple', 2); give(G, 3, 'wood', 3); give(G, 4, 'wheat', 3); give(G, 5, 'apple', 3);
+  assert.strictEqual(ET.packFood(G, 0).why, 'notfood', '1 階不算料理'); assert.strictEqual(ET.packFood(G, 3).why, 'notfood', '木頭不是料理');
+  assert.ok(ET.packFood(G, 1).ok && ET.packFood(G, 2).ok && ET.packFood(G, 4).ok);
+  assert.strictEqual(ET.packFood(G, 5).why, 'full'); assert.strictEqual(G.adv.food.queue.length, 3); assert.strictEqual(G.board[1], null);
+  assert.ok(ET.unpackFood(G, 0).ok); assert.strictEqual(G.adv.food.queue.length, 2); assert.strictEqual(G.board.filter(it => it && it.s === 'wheat' && it.t === 2).length, 1);
+  assert.ok(!ET.unpackFood(G, 9).ok);
+});
+test('料理補給：依序啟用、效果持續 120 × 2^(階-2) 秒、期滿後血量上限回復', () => {
+  const G = advGame(['sword']), h = G.adv.heroes[0]; G.adv.recover = 1e6;     // 躺平中：不戰鬥，只算料理
+  give(G, 0, 'wheat', 2); give(G, 1, 'wheat', 3);
+  ET.packFood(G, 0); ET.packFood(G, 1);
+  runAdv(G, 1);
+  assert.strictEqual(G.adv.food.act.t, 2); assert.strictEqual(G.adv.food.left, 120); assert.strictEqual(G.adv.food.queue.length, 1);
+  assert.strictEqual(ET.heroStats(G, h).hp, 55, '🍞 血量 +10%');
+  h.hp = 55; runAdv(G, 100); assert.ok(G.adv.food.act && G.adv.food.act.t === 2);
+  runAdv(G, 25);
+  assert.strictEqual(G.adv.food.act.t, 3, '🍞 結束，🥪 接著'); assert.strictEqual(h.hp, 50, '血量不超過新上限');
+  assert.ok(near(ET.heroStats(G, h).def, 1 * 1.12), '🥪 防禦 +12%');
+  assert.strictEqual(ET.FOOD_SEC(2), 120); assert.strictEqual(ET.FOOD_SEC(3), 240); assert.strictEqual(ET.FOOD_SEC(5), 960);
+  runAdv(G, 245); assert.strictEqual(G.adv.food.act, null);
+});
+test('料理效果：🧃 回血、🎂 經驗 +25%', () => {
+  const G = advGame(['sword']), h = G.adv.heroes[0]; G.adv.recover = 1e6;
+  G.adv.recover = 0; give(G, 0, 'apple', 2); ET.packFood(G, 0); h.hp = 10;
+  G.adv.battle = { enemies: [{ e: '🐺', name: 'x', hp: 1e9, maxhp: 1e9, atk: 1, def: 0 }], t: 0 };      // 戰鬥中（敵人每回合只打 1）
+  runAdv(G, 6);
+  assert.ok(h.hp >= 10 + 2 * 6 - 6, '每秒 +2、扣掉敵人每回合 1：' + h.hp);
+  const A = advGame(['sword']), B = advGame(['sword']);
+  A.adv.food.act = { s: 'wheat', t: 5 }; A.adv.food.left = 9999;
+  for (const g of [A, B]) { g.adv.battle = { enemies: [{ e: '🐺', name: 'x', hp: 1, maxhp: 1, atk: 1, def: 0 }], t: 0 }; ET.advTick(g, 1); }
+  assert.ok(A.adv.heroes[0].xp > B.adv.heroes[0].xp, '🎂 經驗較多：' + A.adv.heroes[0].xp + ' vs ' + B.adv.heroes[0].xp);
+});
+test('戰鬥：贏了拿 💰（等於 stageReward）、經驗、前進一關；結果可重現', () => {
+  const G = advGame(['sword']);
+  const c0 = G.coins; runAdv(G, 60);
+  assert.ok(G.adv.stats.stages >= 1); assert.ok(G.coins >= c0 + ET.stageReward(1, 1));
+  assert.strictEqual(G.stats.earned, G.coins, '冒險收入也算進總收入');
+  assert.ok(G.adv.heroes[0].xp > 0 || G.adv.heroes[0].lvl > 1); assert.ok(G.adv.stage >= 2 || G.adv.stats.defeats > 0);
+  const a = advGame(['sword', 'knight'], { rs: 77 }), b = advGame(['sword', 'knight'], { rs: 77 });
+  runAdv(a, 300); runAdv(b, 300);
+  assert.strictEqual(JSON.stringify(a.adv), JSON.stringify(b.adv)); assert.strictEqual(a.coins, b.coins);
+});
+test('戰鬥節奏與 dt 無關：0.5 秒 × 2 = 1 秒，累積不足 1 秒不出手', () => {
+  const a = advGame(['sword'], { rs: 5 }), b = advGame(['sword'], { rs: 5 });
+  ET.advTick(a, 0.4); assert.strictEqual(a.adv.battle, null, '不到 1 秒不開打');
+  for (let i = 0; i < 200; i++) { ET.advTick(a, 0.5); ET.advTick(a, 0.5); ET.advTick(b, 1); }
+  a.adv.acc = 0; b.adv.acc = 0;
+  const strip = g => JSON.stringify(Object.assign({}, g.adv, { acc: 0 }));
+  assert.strictEqual(strip(a), strip(b));
+});
+test('職業：法師打全體、弓手打最後面、劍士打最前面、精靈每 2 秒治療最殘血的', () => {
+  const mkB = () => ({ enemies: [0, 1, 2].map(i => ({ e: '🐺', name: 'm' + i, hp: 1000, maxhp: 1000, atk: 1, def: 0 })), t: 0 });
+  for (const [role, check] of [
+    ['mage', e => { for (const x of e) assert.ok(x.hp < 1000 && x.hp >= 1000 - 5, '全體：' + x.hp); }],
+    ['archer', e => { assert.strictEqual(e[0].hp, 1000); assert.strictEqual(e[1].hp, 1000); assert.ok(e[2].hp < 1000, '最後面'); }],
+    ['sword', e => { assert.ok(e[0].hp < 1000); assert.strictEqual(e[1].hp, 1000); assert.strictEqual(e[2].hp, 1000); }]
+  ]) { const G = advGame([role]); G.adv.battle = mkB(); runAdv(G, 1); check(G.adv.battle.enemies); }
+  const G = advGame(['knight', 'elf']); const kn = G.adv.heroes[0];
+  G.adv.battle = { enemies: [{ e: '🐺', name: 'x', hp: 1e9, maxhp: 1e9, atk: 1, def: 0 }], t: 1 };   // 下一回合 t=2 → 精靈治療
+  kn.hp = 10; ET.advTick(G, 1);
+  assert.ok(kn.hp >= 10 + 7 - 1, '被補血：' + kn.hp); assert.ok(G.ev.some(e => e.t === 'heal'));
+});
+test('騎士嘲諷：有騎士時怪物約 70% 打騎士（60% 嘲諷 + 其餘隨機 1/4）', () => {
+  const G = advGame(['knight', 'sword', 'archer', 'mage']); let onKnight = 0, total = 0;
+  const kid = G.adv.heroes[0].id;
+  for (let i = 0; i < 600; i++) {
+    for (const h of G.adv.heroes) h.hp = 1e9;
+    G.adv.battle = { enemies: [{ e: '🐺', name: 'x', hp: 1e9, maxhp: 1e9, atk: 1, def: 0 }], t: 0 };
+    ET.advTick(G, 1);
+    for (const e of G.ev) if (e.t === 'hit' && e.side === 'hero') { total++; if (e.hid === kid) onKnight++; }
+    G.ev.length = 0;
+  }
+  assert.ok(total > 500 && onKnight / total > 0.6 && onKnight / total < 0.8, '打騎士比例 ' + (onKnight / total).toFixed(2));
+});
+test('全滅：退一關、躺平 10 秒後血量補滿重新開打；再贏 6 場才往上推', () => {
+  const G = advGame(['sword']); G.adv.open[2] = true; G.adv.area = 2; G.adv.stage = 10;
+  let n = 0; while (G.adv.stats.defeats === 0 && n++ < 100) runAdv(G, 1);
+  assert.strictEqual(G.adv.stats.defeats, 1); assert.strictEqual(G.adv.stage, 9); assert.strictEqual(G.adv.recover, ET.ADV.recoverSec); assert.strictEqual(G.adv.hold, ET.ADV.holdWins);
+  assert.strictEqual(G.adv.heroes[0].hp, 0);
+  runAdv(G, ET.ADV.recoverSec); assert.strictEqual(G.adv.recover, 0); assert.strictEqual(G.adv.heroes[0].hp, ET.heroStats(G, G.adv.heroes[0]).hp, '血量補滿');
+  const S = strongTeam(20, 5); S.adv.stage = 3; S.adv.hold = 3;
+  let w = 0; while (S.adv.stats.stages < 3 && w++ < 200) runAdv(S, 1);
+  assert.strictEqual(S.adv.stage, 3, '前 3 場贏了都留在原地'); assert.strictEqual(S.adv.hold, 0);
+  w = 0; while (S.adv.stats.stages < 4 && w++ < 200) runAdv(S, 1);
+  assert.strictEqual(S.adv.stage, 4, '第 4 場才往上');
+});
+test('Boss：第一次打倒 → 開放下一區並自動前進；最後一區打倒只通知；已打倒的 Boss 可重複刷', () => {
+  const G = strongTeam(30, 5); G.adv.stage = 10;
+  let n = 0; while (!G.adv.cleared[1] && n++ < 300) runAdv(G, 1);
+  assert.ok(G.adv.cleared[1]); assert.ok(G.adv.open[2]); assert.strictEqual(G.adv.area, 2); assert.strictEqual(G.adv.stage, 1); assert.strictEqual(G.adv.hold, 0);
+  G.adv.area = 1; G.adv.stage = 10; const before = G.adv.stats.stages; G.adv.battle = null;
+  n = 0; while (G.adv.stats.stages === before && n++ < 300) runAdv(G, 1);
+  assert.strictEqual(G.adv.area, 1, '已打倒過的 Boss 留在原地重複刷'); assert.strictEqual(G.adv.stage, 10);
+  G.adv.area = 2; G.adv.stage = 10; G.adv.battle = null; G.ev.length = 0; n = 0;
+  while (!G.adv.cleared[2] && n++ < 600) { ET.advTick(G, 1); if (G.adv.cleared[2]) break; G.ev.length = 0; }
+  assert.ok(G.adv.cleared[2]); assert.strictEqual(G.adv.area, 2, '沒有第 3 區'); assert.ok(G.ev.some(e => e.t === 'toast' && /打倒/.test(e.text)));
+  assert.ok(!G.adv.open[3]);
+});
+test('選區域：只能去開放的、會回到那區已到過的關卡', () => {
+  const G = advGame(['sword']);
+  assert.ok(!ET.advGo(G, 2).ok); G.adv.open[2] = true; G.adv.reach[2] = 4;
+  assert.ok(ET.advGo(G, 2).ok); assert.strictEqual(G.adv.area, 2); assert.strictEqual(G.adv.stage, 4);
+  assert.ok(ET.advGo(G, 1).ok); assert.strictEqual(G.adv.stage, G.adv.reach[1]); assert.ok(!ET.advGo(fresh(), 1).ok);
+});
+test('掉寶：過關有機率掉 1 階裝備放上合成盤；盤面滿了直接折現（不浪費、不卡）', () => {
+  const realRand = ET.rand;
+  try {
+    ET.rand = () => 0;                                                       // 每次擲骰都是 0：一定掉、掉第一種（武器）、區域 2 掉 2 階
+    const G = strongTeam(10, 3); G.adv.battle = { enemies: [{ e: '🐺', name: 'x', hp: 1, maxhp: 1, atk: 1, def: 0 }], t: 0 }; ET.advTick(G, 1);
+    assert.ok(G.board.some(it => it && it.s === 'blade' && it.t === 1)); assert.strictEqual(G.adv.stats.drops, 1);
+    const F = strongTeam(10, 3); for (let i = 0; i < 30; i++) give(F, i, 'wood', 1);
+    const c0 = F.coins; F.adv.battle = { enemies: [{ e: '🐺', name: 'x', hp: 1, maxhp: 1, atk: 1, def: 0 }], t: 0 }; ET.advTick(F, 1);
+    assert.strictEqual(ET.count(F), 30); assert.strictEqual(F.coins - c0, ET.stageReward(1, 1) + ET.value('blade', 1), '折現');
+    const A2 = strongTeam(10, 3); A2.adv.open[2] = true; A2.adv.area = 2; A2.adv.battle = { enemies: [{ e: '🦂', name: 'x', hp: 1, maxhp: 1, atk: 1, def: 0 }], t: 0 }; ET.advTick(A2, 1);
+    assert.ok(A2.board.some(it => it && it.s === 'blade' && it.t === 2), '區域 2 掉 2 階');
+  } finally { ET.rand = realRand; }
+});
+test('點怪物：額外傷害 = 隊伍最高攻擊的一半；打死會過關', () => {
+  const G = advGame(['sword']);
+  G.adv.battle = { enemies: [{ e: '🐺', name: 'x', hp: 1000, maxhp: 1000, atk: 1, def: 0 }, { e: '🐺', name: 'y', hp: 1, maxhp: 1, atk: 1, def: 0 }], t: 0 };
+  const r = ET.advTap(G, 0); assert.ok(r.ok); assert.strictEqual(r.dmg, Math.round(9 * 0.5)); assert.strictEqual(G.adv.battle.enemies[0].hp, 1000 - r.dmg);
+  assert.ok(!ET.advTap(G, 5).ok);
+  const c0 = G.coins; ET.advTap(G, 1); G.adv.battle.enemies[0].hp = 1; ET.advTap(G, 0);
+  assert.strictEqual(G.adv.battle, null); assert.ok(G.coins > c0); assert.strictEqual(G.adv.stats.stages, 1);
+  assert.ok(!ET.advTap(G, 0).ok, '沒有戰鬥');
+});
+test('升級：贏了會升級，每級血量 / 攻擊 +6%，且血量補上增加的部分', () => {
+  const G = advGame(['sword']), h = G.adv.heroes[0];
+  h.xp = ET.heroXpNeed(1) - 1; h.hp = 30;
+  G.adv.battle = { enemies: [{ e: '🐺', name: 'x', hp: 1, maxhp: 1, atk: 1, def: 0 }], t: 0 }; ET.advTick(G, 1);
+  assert.strictEqual(h.lvl, 2); assert.strictEqual(ET.heroStats(G, h).hp, Math.round(50 * 1.06)); assert.ok(h.hp >= 30);
+  assert.strictEqual(ET.heroXpNeed(1), 20); assert.strictEqual(ET.heroXpNeed(4), 160);
+  const L = advGame(['sword'], { lvl: ET.ADV.heroMaxLv }); L.adv.battle = { enemies: [{ e: '🐺', name: 'x', hp: 1, maxhp: 1, atk: 1, def: 0 }], t: 0 }; ET.advTick(L, 1);
+  assert.strictEqual(L.adv.heroes[0].lvl, ET.ADV.heroMaxLv, '滿級不再升');
+});
+test('裝備與商店不打架：客人不想要裝備、補貨不建議裝備、自動出貨不賣裝備', () => {
+  const G = fresh(); openShop(G); G.dex['blade:1'] = 1; G.dex['blade:2'] = 1; G.dex['plate:2'] = 1; G.dex['charm:3'] = 1; G.shop.nextIv = 1;
+  for (let i = 0; i < 80; i++) { for (let k = 0; k < G.shop.shelves.length; k++) if (!G.shop.shelves[k].item) shelfItem(G, k, 'wheat', 2); ET.shopTick(G, 1); }
+  assert.ok(G.shop.cid > 5);
+  const H = fresh(); openShop(H); give(H, 0, 'blade', 2); give(H, 1, 'plate', 2); give(H, 2, 'charm', 2);
+  assert.strictEqual(ET.restock(H), 0, '沒有設定的貨架不建議裝備');
+  const S = fresh(); S.up.shipper = 1;
+  give(S, 0, 'blade', 4); give(S, 1, 'plate', 5); give(S, 2, 'charm', 3);
+  for (let i = 3; i < 8; i++) give(S, i, 'wood', 5);
+  for (let i = 8; i < 27; i++) give(S, i, i % 2 ? 'blade' : 'plate', 1 + (i % 4));
+  const gearMass = g => g.board.reduce((m, it) => m + (it && ET.isGear(it.s) ? Math.pow(2, it.t - 1) : 0), 0);
+  const gm = gearMass(S); ET.tick(S, 1);
+  assert.strictEqual(gearMass(S), gm, '裝備一件都沒被賣（只有合成，等價量不變）'); assert.ok(S.stats.sold >= 0);
+});
+test('存檔：英雄、裝備、料理、全滅冷卻、已開區域都還原；進行中的那場戰鬥不存', () => {
+  const G = advGame(['sword', 'knight'], { lvl: 7 }); const [a, b] = G.adv.heroes;
+  wear(G, a, 'weapon', 'blade', 3); wear(G, b, 'armor', 'plate', 2); a.xp = 33; b.hp = 12;
+  give(G, 0, 'wheat', 3); ET.packFood(G, 0); G.adv.food.act = { id: G.nextId++, s: 'apple', t: 2 }; G.adv.food.left = 77;
+  G.adv.hold = 3; G.adv.recover = 4; G.adv.open[2] = true; G.adv.cleared[1] = true; G.adv.reach[2] = 5; G.adv.stage = 6; G.adv.area = 2; G.adv.forged.blade = 3; G.adv.stats.stages = 42;
+  runAdv(G, 3); assert.ok(G.adv.battle || G.adv.recover >= 0);
+  const H = ET.load(ET.save(G, 9));
+  assert.ok(H && H.adv); assert.strictEqual(H.adv.battle, null); assert.strictEqual(H.adv.acc, 0);
+  const strip = x => JSON.stringify(Object.assign({}, x, { battle: null, acc: 0, cleared: { 1: !!x.cleared[1], 2: !!x.cleared[2] } }));     // 還原時會把沒打過的區域補成 false，語意相同
+  assert.strictEqual(strip(H.adv), strip(G.adv)); assert.ok(H.unlocked.quest);
+  const ids = [...H.board.filter(Boolean), ...H.shop.shelves.map(x => x.item).filter(Boolean), ...H.adv.heroes.flatMap(h => Object.values(h.gear).filter(Boolean)), ...H.adv.food.queue].map(it => it.id);
+  assert.strictEqual(new Set(ids).size, ids.length, '物品 id 不重複'); assert.ok(H.nextId > Math.max(...ids));
+});
+test('存檔相容與壞檔：沒有冒險資料的舊存檔、只有旗標沒有資料、亂填的英雄與裝備', () => {
+  const old = JSON.parse(ET.save(fresh(), 1)); delete old.adv; delete old.unlocked.quest;
+  const G = ET.load(JSON.stringify(old)); assert.ok(G && G.adv === null && !G.unlocked.quest);
+  const flag = JSON.parse(ET.save(fresh(), 1)); flag.unlocked.quest = true; delete flag.adv;
+  const F = ET.load(JSON.stringify(flag)); assert.ok(F.adv); assert.strictEqual(F.adv.heroes.length, 1); assert.strictEqual(F.adv.heroes[0].role, 'sword');
+  const bad = JSON.parse(ET.save(advGame(['sword']), 1));
+  bad.adv.heroes = [{ role: 'nope' }, { role: 'sword', lvl: 999, xp: 'x', hp: NaN, gear: { weapon: { s: 'plate', t: 1 }, armor: { s: 'plate', t: 99 }, trinket: { s: 'charm', t: 2 } } },
+    { role: 'sword' }, { role: 'knight', hp: -5 }, { role: 'archer' }, { role: 'elf' }, { role: 'mage' }, null, 5];
+  bad.adv.area = 99; bad.adv.stage = -3; bad.adv.recover = 1e9; bad.adv.hold = 'x'; bad.adv.food = { queue: [{ s: 'wood', t: 3 }, { s: 'wheat', t: 3 }, 7, { s: 'apple', t: 99 }], act: { s: 'zzz', t: 1 }, left: 'x' };
+  const B = ET.load(JSON.stringify(bad));
+  assert.ok(B && B.adv); const A = B.adv;
+  assert.ok(A.heroes.length <= 4 && new Set(A.heroes.map(h => h.role)).size === A.heroes.length, '最多 4 位、職業不重複');
+  const s = A.heroes.find(h => h.role === 'sword'); assert.strictEqual(s.lvl, ET.ADV.heroMaxLv); assert.strictEqual(s.xp, 0);
+  assert.strictEqual(s.gear.weapon, null, '防具不能穿在武器欄'); assert.strictEqual(s.gear.armor, null); assert.strictEqual(s.gear.trinket.s, 'charm');
+  assert.ok(Number.isFinite(s.hp) && s.hp > 0); const k = A.heroes.find(h => h.role === 'knight'); assert.ok(k.hp >= 0 && Number.isFinite(k.hp));
+  assert.ok(A.area >= 1 && A.area <= 2 && A.stage >= 1 && A.stage <= 10 && A.recover <= ET.ADV.recoverSec && A.hold === 0);
+  assert.strictEqual(A.food.queue.length, 1); assert.strictEqual(A.food.act, null);
+  runAdv(B, 200); assert.ok(Number.isFinite(B.coins));
+  assert.strictEqual(ET.load(JSON.stringify(Object.assign(JSON.parse(ET.save(fresh(), 1)), { adv: 'garbage' }))).adv, null);
+});
+test('離線補算與逐秒 tick 一致（冒險 + 商店 + 農場全自動化）；摘要含冒險數字', () => {
+  const mk = () => { const G = strongTeam(3, 2); G.up.farmer = 1; G.up.bot = 2; G.up.clerk = 1; G.up.shipper = 1; G.dex['wheat:2'] = 1; G.dex['wheat:1'] = 1; G.age = 1000; G.plots.forEach((p, i) => ET.plant(G, i, 'wheat')); return G; };
+  const a = mk(), b = mk(); const sum = ET.offline(a, 3600); for (let i = 0; i < 3600; i++) ET.tick(b, 1);
+  assert.strictEqual(a.coins, b.coins); assert.strictEqual(JSON.stringify(a.adv), JSON.stringify(b.adv)); assert.strictEqual(a.rs, b.rs);
+  assert.ok(sum.advStages > 20, '一小時打了不少關：' + sum.advStages); assert.ok(sum.advCoins > 0 && typeof sum.advDefeats === 'number' && typeof sum.advLevels === 'number' && typeof sum.advDrops === 'number');
+});
+test('冒險提示：開放後引導鍛造武器，鍛造後提示消失', () => {
+  const G = advGame(['sword']); G.stats.merges = 1; G.unlocked.merge = true; G.stats.sold = 1; G.shop.sales = 3; ET.plant(G, 0, 'wheat'); G.up.farmer = 1;
+  assert.ok(ET.hint(G).includes('鍛造'), ET.hint(G));
+  give(G, 0, 'blade', 1); assert.ok(!ET.hint(G).includes('鍛造'));
+  const H = advGame(['sword']); H.stats.merges = 1; H.unlocked.merge = true; H.stats.sold = 1; H.shop.sales = 3; ET.plant(H, 0, 'wheat'); H.up.farmer = 1;
+  wear(H, H.adv.heroes[0], 'weapon', 'blade', 1); assert.ok(!ET.hint(H).includes('鍛造'));
+});
+test('效能：一切全開（農場、商店、4 位英雄）離線 12 小時要在 4 秒內算完', () => {
+  const G = strongTeam(5, 3); G.up = Object.assign(G.up, { fert: 10, farmer: 1, bot: 5, shipper: 1, offline: 8, shelf: 8, deco: 5, clerk: 1, sign: 5 }); G.expand = 4;
+  while (G.plots.length < 25) G.plots.push({ crop: null, p: 0 });
+  for (const s of ['wheat', 'apple', 'wood', 'flower']) for (let t = 1; t <= 4; t++) G.dex[s + ':' + t] = 1;
+  G.age = 1000; G.plots.forEach((p, i) => ET.plant(G, i, ['wheat', 'apple', 'wood', 'flower'][i % 4]));
+  const t0 = Date.now(); const s = ET.offline(G, 12 * 3600); const ms = Date.now() - t0;
+  assert.strictEqual(s.sec, 12 * 3600); assert.ok(ms < 4000, '花了 ' + ms + 'ms'); assert.ok(s.advStages > 100);
+});
+test('S3 隨機亂按：id 不重複、血量 0~上限、英雄 ≤ 4、關卡在範圍內、錢有限', () => {
+  let seed = 31337; const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+  const ser = ['wheat', 'apple', 'wood', 'flower', 'blade', 'plate', 'charm'];
+  for (let run = 0; run < 60; run++) {
+    const G = advGame(['sword'], { rs: run + 1 }); G.coins = 2000; G.age = 500; openShop(G); G.shop.nextIv = 5;
+    for (let step = 0; step < 220; step++) {
+      const r = rnd(), hs = G.adv.heroes, h = hs[(rnd() * hs.length) | 0];
+      if (r < 0.25) { for (let k = 0; k < 1 + ((rnd() * 8) | 0); k++) ET.tick(G, rnd() * 4); }
+      else if (r < 0.38) { const i = (rnd() * 30) | 0; if (!G.board[i]) give(G, i, ser[(rnd() * 7) | 0], 1 + ((rnd() * 5) | 0)); }
+      else if (r < 0.46) ET.forge(G, ['blade', 'plate', 'charm'][(rnd() * 3) | 0]);
+      else if (r < 0.56) ET.equip(G, (rnd() * 30) | 0, h.id);
+      else if (r < 0.62) ET.unequip(G, h.id, ET.SLOTS[(rnd() * 3) | 0]);
+      else if (r < 0.68) ET.enhance(G, h.id, ET.SLOTS[(rnd() * 3) | 0]);
+      else if (r < 0.74) ET.packFood(G, (rnd() * 30) | 0);
+      else if (r < 0.77) ET.unpackFood(G, (rnd() * 3) | 0);
+      else if (r < 0.80) ET.recruit(G, ['knight', 'archer', 'mage', 'elf', 'sword'][(rnd() * 5) | 0]);
+      else if (r < 0.84) ET.advGo(G, 1 + ((rnd() * 2) | 0));
+      else if (r < 0.87) { if (G.adv.battle) ET.advTap(G, (rnd() * 3) | 0); }
+      else if (r < 0.90) ET.mergeAll(G);
+      else if (r < 0.93) { G.coins += 500; }
+      else if (r < 0.96) ET.restock(G);
+      else { const H = ET.load(ET.save(G, step)); assert.ok(H); Object.assign(G, H); G.shop.nextIv = 5; }
+      G.ev.length = 0;
+      const A = G.adv;
+      const ids = [...G.board.filter(Boolean), ...G.shop.shelves.map(x => x.item).filter(Boolean), ...A.heroes.flatMap(x => Object.values(x.gear).filter(Boolean)), ...A.food.queue, ...(A.food.act ? [A.food.act] : [])].map(it => it.id);
+      assert.strictEqual(new Set(ids).size, ids.length, 'id 重複 run ' + run + ' step ' + step);
+      assert.ok(A.heroes.length >= 1 && A.heroes.length <= 4);
+      for (const x of A.heroes) assert.ok(x.hp >= 0 && x.hp <= ET.heroStats(G, x).hp && Number.isFinite(x.hp), '血量 ' + x.hp);
+      assert.ok(A.stage >= 1 && A.stage <= 10 && A.area >= 1 && A.area <= 2 && A.open[A.area]);
+      assert.ok(Number.isFinite(G.coins) && G.coins >= 0);
+    }
+  }
+});
+
 console.log('UI 原始碼防護（Node 無法模擬滑鼠，所以檢查關鍵寫法沒被改掉）');
 test('回歸：拖曳殘影卡住 —— 結束事件掛 window、開始拖曳捕捉指標、切分頁 / 開視窗清殘影、CSS 類別不撞名', () => {
   const ui = fs.readFileSync(path.join(__dirname, '..', 'js/ui.js'), 'utf8');
