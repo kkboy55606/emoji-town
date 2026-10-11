@@ -3,12 +3,14 @@
 企劃書：[企劃書.md](企劃書.md)　遊戲：[index.html](index.html)（純靜態，不需伺服器）
 測試：`npm test`（核心 128 條 + PWA 11 條）　UI 冒煙：`npm run ui`（17 項，真 Chrome）　PWA 端對端：`node tools/pwa_e2e.js`（真 Chrome）　進度模擬：`npm run sim`（`node tools/sim.js --no-shop` 是不用商店的對照組）
 
+接手請先讀：[HANDOFF.md](HANDOFF.md)（交接單 #1）與 [決策記錄.md](決策記錄.md)（D1～D15）
+
 旗標：🟢 已實作待驗　✅ 已實作並驗過　⏸ 已延後
 
 ## 發佈（手機玩）
 
 - **Artifact（私人）**：https://claude.ai/artifact/GjTzDaFEa5GssYpatc7RSG　目前是 **S2 版（不含冒險）**。
-- 更新方式：`node tools/build_artifact.js`（加 `--adv` 才含冒險）→ 重新發佈 `dist/artifact.html` 到同一個網址。同網址更新時，玩家瀏覽器裡的存檔會保留。
+- 更新方式：`node tools/build_artifact.js`（預設含冒險，`--no-adv` 排除）→ 重新發佈 `dist/artifact.html` 到同一個網址。同網址更新時，玩家瀏覽器裡的存檔會保留。
 - 存檔在「開啟那支裝置的瀏覽器」的 localStorage，**不同步、不上傳、Claude 也讀不到**；電腦上雙擊開的版本和 Artifact 版是不同來源，存檔不通用，要搬用「⚙️ 設定 → 匯出存檔碼 / 匯入存檔碼」。
 - **不是 PWA**：Artifact 的環境明確不支援 service worker（沒有離線安裝）。真正的 PWA 需要放到 HTTPS 靜態主機（例如 GitHub Pages）並補上 manifest + service worker + 圖示，需要使用者的帳號與同意，尚未做。
 - 風險：瀏覽器的 localStorage 可能被清除（清除網站資料、無痕視窗；iPhone 的 Safari 也可能清掉很久沒開的網站資料），請定期匯出存檔碼備份。
@@ -17,13 +19,13 @@
 
 - **網址：https://kkboy55606.github.io/emoji-town/**　repo：https://github.com/kkboy55606/emoji-town（公開）。Pages 來源：main 分支的 `/docs`。
 - 更新流程：改程式 → `npm test` → `node tools/build_pwa.js` → `git add -A && git commit && git push` → 約 1 分鐘後上線；已安裝的手機會在下次開啟（或回到前景）時看到「🔄 有新版本，點這裡更新」。
-- 上線驗證：`node tools/pwa_live.js https://kkboy55606.github.io/emoji-town/`（真的 Chrome，6 項：HTTPS、service worker、快取、manifest 與圖示、無錯誤、存檔）。
+- 上線驗證：`node tools/pwa_live.js https://kkboy55606.github.io/emoji-town/`（真的 Chrome，7 項：HTTPS、含冒險、service worker、快取、manifest 與圖示、無錯誤、存檔）。
 - 預設打包含冒險；`--no-adv` 可排除。
 - git 提交作者用 GitHub 的 noreply 信箱（`9152508+kkboy55606@users.noreply.github.com`），不會公開個人信箱。
 
 ### PWA（GitHub Pages）
 
-- `node tools/build_pwa.js`（加 `--adv` 含冒險）→ 產生 `docs/`：單檔 `index.html`、`manifest.webmanifest`、`sw.js`、圖示、`.nojekyll`。GitHub Pages 設成「main 分支的 /docs 資料夾」。
+- `node tools/build_pwa.js`（預設含冒險，`--no-adv` 排除）→ 產生 `docs/`：單檔 `index.html`、`manifest.webmanifest`、`sw.js`、圖示、`.nojekyll`。GitHub Pages 設成「main 分支的 /docs 資料夾」。
 - 所有路徑都是相對路徑（專案網站網址有子路徑 `/專案名/`）；有測試擋住以 `/` 開頭的路徑。
 - service worker：版本號 = 內容雜湊；快取優先、可離線；新版裝好後**先等著**，頁面上方出現「🔄 有新版本，點這裡更新」，玩家按了才換（不會玩到一半被換掉）。第一次安裝不會重載頁面。
 - 會申請瀏覽器的「永久儲存」（`navigator.storage.persist()`），存檔比較不容易被清掉。
@@ -43,7 +45,7 @@
 |---|---|---|
 | **S1 骨架** | 分頁框架、花園、合成盤、存檔、離線收益 | ✅ |
 | **S2 商店** | 貨架、客人、人氣、店員、商店升級 | ✅ 核心 70 條測試 + 瀏覽器窗格驗過；🟢 真機觸控未驗 |
-| **S3 冒險 + 裝備** | 英雄、戰鬥、裝備、料理補給 | ✅ 核心 28 條測試 + UI 冒煙 14 項（真 Chrome）+ 瀏覽器窗格目視；🟢 真手機觸控未驗；平衡只有模擬 |
+| **S3 冒險 + 裝備** | 英雄、戰鬥、裝備、料理補給 | ✅ 核心 28 條測試（核心總計 128）+ UI 冒煙（總計 17 項）（真 Chrome）+ 瀏覽器窗格目視；🟢 真手機觸控未驗；平衡只有模擬 |
 | S4 公會 | 委託、發布任務、流浪冒險者、招募 | ⏸ |
 | S5 生態 + 後期 | 相鄰加成、配種、區域 3–5、轉生 | ⏸ |
 | S6 打磨 | 數值平衡、教學、音效、圖鑑頁 | ⏸ |
